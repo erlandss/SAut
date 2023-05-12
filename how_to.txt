@@ -1,0 +1,2 @@
+View image from camera in its own window:
+rosrun rqt_image_view rqt_image_view
