@@ -1,4 +1,6 @@
 Marcelo's ros demo repo: https://github.com/MarceloJacinto/demo_ros/tree/main
 
+Aruco detect package docs: http://wiki.ros.org/aruco_detect
+
 Playing multiple ros bags simultainously: https://answers.ros.org/question/62811/how-to-play-rosbag-using-launch-file/
 
