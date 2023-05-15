@@ -5,7 +5,7 @@ If wanting to use some of the custom nodes also run: "cd ~/catkin_ws/src/fast_sl
 
 See how_to.txt for package dependecies and instructions on how to get things to work
 
-# [Creating stuff to use in the project]
+# Creating stuff to use in the project
 
 1. Create new .py files inside ~/catkin_ws/src/fast_slam/src/fast_slam
 
