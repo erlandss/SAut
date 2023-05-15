@@ -1,7 +1,11 @@
 # fast_slam
 
 Clone this repository into ~/catkin_ws/src to start using it. Then run "cd ~/catkin_ws/" and "catkin build" in the terminal to start using launch files etc.
-If wanting to use some of the custom nodes also run: "cd ~/catkin_ws/src/fast_slam/src/fast_slam" and "chmod +x "name of node".py
+If wanting to use some of the custom nodes also run:
+ ```
+    cd ~/catkin_ws/src/fast_slam/src/fast_slam
+    chmod +x <name of node>.py
+    ```
 
 See how_to.txt for package dependecies and instructions on how to get things to work
 
