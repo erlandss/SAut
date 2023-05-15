@@ -22,7 +22,7 @@ catkin build
 - To use camera on VMware, set USB compatibility to 3.1 in the USB Controller in Devices
 
 
-- Publish topics from camera:
+- Publish topics from camera (download freenect first):
 dmesg
 - Use above to find serial number of camera and run:
 roslaunch freenect_launch freenect.launch device_id:=<serial number> depth_processing:=false
@@ -62,6 +62,7 @@ source ~/catkin_ws/devel/setup.bash
 - Add folder ros_demo (from this repository) to ~/catkin_ws/src
 - Run catkin build inside the catkin_ws folder
 roslaunch demo_ros aruco.launch
+- Then run freenect to publish topics from camera
 
 
 - Installing camera calibrator package:
