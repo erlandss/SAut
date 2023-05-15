@@ -1,0 +1,4 @@
+Marcelo's ros demo repo: https://github.com/MarceloJacinto/demo_ros/tree/main
+
+Playing multiple ros bags simultainously: https://answers.ros.org/question/62811/how-to-play-rosbag-using-launch-file/
+
