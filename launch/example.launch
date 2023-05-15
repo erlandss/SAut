@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+
+    <env name="ROSCONSOLE_FORMAT" value="[${severity}] [${time}]: ${node}: ${message}"/>
+
+    <!-- Load the configuration file -->
+    <rosparam command="load" file="$(find fast_slam)/config/config.yaml" />
+
+    <node pkg="fast_slam" type="demo_node.py" name="demo_node" respawn="false" output="screen" />
+</launch>

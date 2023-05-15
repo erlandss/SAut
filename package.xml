@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>fast_slam</name>
+  <version>1.0.0</version>
+  <description>FastSLAM project in SAut</description>
+  <maintainer email="something@todo.todo">Group something</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>fiducial_msgs</depend>
+  
+  <!-- Needed for generating messages -->
+  <depend>message_runtime</depend>
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+  </export>
+  
+</package>
