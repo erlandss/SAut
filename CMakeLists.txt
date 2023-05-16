@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   nav_msgs
   fiducial_msgs
+  sensor_msgs
 
   # For generating the messages
   message_generation
@@ -47,6 +48,7 @@ catkin_package(
   nav_msgs
   message_runtime
   fiducial_msgs
+  sensor_msgs
 )
 
 ##########
