@@ -66,7 +66,7 @@ roslaunch demo_ros aruco.launch
 
 
 - Installing camera calibrator package:
-sudo apt-get install ros-noetic-camera-calibrator
+sudo apt-get install ros-noetic-camera-calibration
 rosdep install camera_calibration
 
 
