@@ -71,51 +71,34 @@ class PoseNode:
         quaternion = msg.pose.pose.orientation #x, y, z, w
         self.pos = (point.x, point.y)
         self.yaw = quaternion_to_yaw([quaternion.x, quaternion.y, quaternion.z, quaternion.w])
-        rospy.loginfo('Yaw is : %f', self.yaw)
+        rospy.loginfo('x: %f, y: %f, z: %f, w: %f, yaw: %f', quaternion.x, quaternion.y, quaternion.z, quaternion.w, self.yaw)
 
 
-    def draw_arrow(self, x, y, angle_degrees):
+    def draw_arrow(self, x, y, angle):
         self.canvas.delete('all')
         x = 400 + 100*x
         y = 400 - 100*y
 
-        arrow_length = 50  # Length of the arrow
-        arrow_width = 10  # Width of the arrow
-        arrow_head_length = 20  # Length of the arrow head
+        marker_length = 15  # Length of the arrow
         
-        # Convert the angle from degrees to radians
-        angle_radians = math.radians(angle_degrees)
+        # Calculate the coordinates of the marker
+        marker_point_1_x = x + (marker_length + 10) * math.cos(angle)
+        marker_point_1_y = y - (marker_length + 10) * math.sin(angle)
+        marker_point_2_x = x + marker_length * math.cos(angle + math.radians(120))
+        marker_point_2_y = y - marker_length * math.sin(angle + math.radians(120))
+        marker_point_3_x = x + marker_length * math.cos(angle + math.radians(240))
+        marker_point_3_y = y - marker_length * math.sin(angle + math.radians(240))
         
-        # Calculate the endpoint of the arrow
-        end_x = x + arrow_length * math.cos(angle_radians)
-        end_y = y - arrow_length * math.sin(angle_radians)
-        
-        # Calculate the coordinates of the arrowhead
-        arrowhead_1_x = end_x + arrow_head_length * math.cos(angle_radians + math.pi - arrow_width/2)
-        arrowhead_1_y = end_y - arrow_head_length * math.sin(angle_radians + math.pi - arrow_width/2)
-        arrowhead_2_x = end_x + arrow_head_length * math.cos(angle_radians + math.pi + arrow_width/2)
-        arrowhead_2_y = end_y - arrow_head_length * math.sin(angle_radians + math.pi + arrow_width/2)
-        
-        # Draw the arrow on the canvas
-        self.canvas.create_line(x, y, end_x, end_y, width=2, arrow=tk.LAST)
-        self.canvas.create_polygon(end_x, end_y, arrowhead_1_x, arrowhead_1_y, arrowhead_2_x, arrowhead_2_y, fill='black')
+        # Draw the marker on the canvas
+        self.canvas.create_polygon(marker_point_1_x, marker_point_1_y, marker_point_2_x, marker_point_2_y,
+                            marker_point_3_x, marker_point_3_y, fill='black')
 
 
 def quaternion_to_yaw(quaternion):
     # Extract the yaw angle from the quaternion
-    yaw = math.atan2(2 * (quaternion[1] * quaternion[2] + quaternion[0] * quaternion[3]),
-                    quaternion[0]**2 - quaternion[1]**2 - quaternion[2]**2 + quaternion[3]**2)
-    
-    # Convert the yaw angle from radians to degrees
-    yaw_degrees = math.degrees(yaw)
-    
-    # Adjust the yaw angle to be within the range of -180 to 180 degrees
-    if yaw_degrees > 180:
-        yaw_degrees -= 360
-    elif yaw_degrees < -180:
-        yaw_degrees += 360
-    
-    return yaw_degrees
+    yaw = math.atan2(2 * (quaternion[0] * quaternion[1] + quaternion[2] * quaternion[3]),
+                     1 - 2*(quaternion[1]**2 + quaternion[3]**2)) 
+    return yaw
 
 
         
