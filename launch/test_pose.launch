@@ -4,9 +4,9 @@
     <param name="use_sim_time" value="true"/>
     
     <arg name="bag_path" default="/home/erland/catkin_ws/src/fast_slam/ros_bags/"/>
-    <arg name="bag_name" default="pose"/>
+    <arg name="bag_name" default="run1_pose"/>
     
-    <node pkg="rosbag" type="play" name="player" output="screen" args="--clock $(arg bag_path)$(arg bag_name).bag"/>
+    <node pkg="rosbag" type="play" name="player" output="screen" args="--clock --rate=5 $(arg bag_path)$(arg bag_name).bag"/>
     
     <node pkg="fast_slam" type="pose_node.py" name="pose_node" respawn="false" output="screen" />
 </launch>
