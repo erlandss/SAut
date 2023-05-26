@@ -14,7 +14,7 @@ class ArucoNode:
         self.detected_aruco_markers = {}
         #Some GUI to see if points are being updated
         self.root = tk.Tk()
-        self.canvas = tk.Canvas(self.root, width=800, height=800)
+        self.canvas = tk.Canvas(self.root, width=1200, height=800)
         self.canvas.pack()       
 
         # Store the data received from a fake sensor

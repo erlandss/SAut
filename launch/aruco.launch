@@ -4,8 +4,8 @@
   <arg name="camera" default="/camera/rgb"/>
   <arg name="image" default="image_mono"/>
   <arg name="transport" default="compressed"/>
-  <arg name="fiducial_len" default="0.20"/>
-  <arg name="dictionary" default="0"/>
+  <arg name="fiducial_len" default="0.145"/>
+  <arg name="dictionary" default="6"/>
   <arg name="do_pose_estimation" default="true"/>
   <arg name="ignore_fiducials" default="" />
   <arg name="fiducial_len_override" default="" />
