@@ -61,7 +61,7 @@ source ~/catkin_ws/devel/setup.bash
 - Runnig aruco_detect:
 - Add folder ros_demo (from this repository) to ~/catkin_ws/src
 - Run catkin build inside the catkin_ws folder
-roslaunch demo_ros aruco.launch
+roslaunch fast_slam aruco.launch
 - Then run freenect to publish topics from camera
 
 
