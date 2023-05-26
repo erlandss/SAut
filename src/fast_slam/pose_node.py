@@ -16,7 +16,7 @@ class PoseNode:
         self.yaw = 0
         #Some GUI to see if points are being updated
         self.root = tk.Tk()
-        self.canvas = tk.Canvas(self.root, width=800, height=800)
+        self.canvas = tk.Canvas(self.root, width=1200, height=800)
         self.canvas.pack()  
    
 
@@ -58,7 +58,6 @@ class PoseNode:
         """
 
         # Do something here at a fixed rate
-        rospy.loginfo('Timer callback called at: %s', rospy.get_time())
         self.draw_arrow(self.pos[0], self.pos[1], self.yaw)
 
 
@@ -78,20 +77,22 @@ class PoseNode:
         self.canvas.delete('all')
         x = 400 + 100*x
         y = 400 - 100*y
+        angle = angle + math.pi/2
 
         marker_length = 15  # Length of the arrow
         
-        # Calculate the coordinates of the marker
-        marker_point_1_x = x + (marker_length + 10) * math.cos(angle)
-        marker_point_1_y = y - (marker_length + 10) * math.sin(angle)
-        marker_point_2_x = x + marker_length * math.cos(angle + math.radians(120))
-        marker_point_2_y = y - marker_length * math.sin(angle + math.radians(120))
-        marker_point_3_x = x + marker_length * math.cos(angle + math.radians(240))
-        marker_point_3_y = y - marker_length * math.sin(angle + math.radians(240))
+         # Calculate the coordinates of the arrow points
+        x1 = x - 0.8*marker_length * math.cos(angle)
+        y1 = y - 0.8*marker_length * math.sin(angle)
+        x2 = x + 0.8*marker_length * math.cos(angle)
+        y2 = y + 0.8*marker_length * math.sin(angle)
         
-        # Draw the marker on the canvas
-        self.canvas.create_polygon(marker_point_1_x, marker_point_1_y, marker_point_2_x, marker_point_2_y,
-                            marker_point_3_x, marker_point_3_y, fill='black')
+        # Calculate the coordinates of the arrowhead
+        x3 = x + 2*marker_length * math.cos(angle + math.pi/2)
+        y3 = y + 2*marker_length * math.sin(angle + math.pi/2)
+        
+        # Draw the arrow on the canvas
+        self.canvas.create_polygon(x1, y1, x2, y2, x3, y3, fill="red")
 
 
 def quaternion_to_yaw(quaternion):

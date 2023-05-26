@@ -1,14 +1,23 @@
 <!-- Run the aruco_detect node -->
 <launch>
+
+  <arg name="calibration_file" default="/home/erland/catkin_ws/src/fast_slam/camera_calibration/ost.yaml" />
+
   <!-- namespace for camera input -->
   <arg name="camera" default="/camera/rgb"/>
   <arg name="image" default="image_mono"/>
   <arg name="transport" default="compressed"/>
   <arg name="fiducial_len" default="0.20"/>
-  <arg name="dictionary" default="0"/>
+  <arg name="dictionary" default="6"/>  <!-- DICT_5X5_250 for the 138 markers in the walls by other group -->
   <arg name="do_pose_estimation" default="true"/>
   <arg name="ignore_fiducials" default="" />
   <arg name="fiducial_len_override" default="" />
+
+  <!-- Load the node that loads the camera intrinsics from yaml and publishes in the CameraInfo topic-->
+  <node pkg="fast_slam" type="yaml_to_camera_info_publisher.py" name="yaml_to_camera_info_publisher" output="screen" >
+    <param name="filename"     value="$(arg calibration_file)" />
+    <param name="camera_topic" value="$(arg camera)"/>
+  </node>
 
   <node pkg="aruco_detect" name="aruco_detect"
     type="aruco_detect" output="screen" respawn="false">
