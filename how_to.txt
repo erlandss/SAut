@@ -56,6 +56,8 @@ source ~/catkin_ws/devel/setup.bash
 
 - Calibrating camera, follow guide below (install aruco_detect package first): 
 - http://wiki.ros.org/camera_calibration/Tutorials/MonocularCalibration
+- But use this launch line:
+rosrun camera_calibration cameracalibrator.py --size 8x6 --square 0.0246 image:=/camera/rgb/image_raw camera:=/camera/rgb
 
 
 - Runnig aruco_detect:
