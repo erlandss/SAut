@@ -4,3 +4,5 @@ Aruco detect package docs: http://wiki.ros.org/aruco_detect
 
 Playing multiple ros bags simultainously: https://answers.ros.org/question/62811/how-to-play-rosbag-using-launch-file/
 
+Fiducial markers: http://wiki.ros.org/fiducials
+
