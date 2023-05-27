@@ -7,6 +7,8 @@
     <arg name="aruco_bag_name" default="run1_aruco"/>
     <arg name="pose_bag_name" default="run1_pose"/>
     
-    <node pkg="rosbag" type="play" name="player" output="screen" args="--clock $(arg bag_path)$(arg aruco_bag_name).bag $(arg bag_path)$(arg pose_bag_name).bag"/>
+    <node pkg="rosbag" type="play" name="player" output="screen" args="--clock --rate=3 $(arg bag_path)$(arg aruco_bag_name).bag $(arg bag_path)$(arg pose_bag_name).bag"/>
     
+    <node pkg="fast_slam" type="test_slam_node.py" name="slam_node" respawn="false" output="screen" />
+
 </launch>
