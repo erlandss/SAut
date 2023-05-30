@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
 
 import math
+import numpy as np
+import random as random
 import tkinter as tk
 import rospy
 from nav_msgs.msg import Odometry
 from fiducial_msgs.msg import FiducialTransformArray
+import fastSlam1 as fs
+from fastSlam1 import Particle, ParticleSet
 
-class PoseNode:
+class FastSlamNode:
 
     def __init__(self):
 
-        # Initialize some necessary variables here
-        self.node_frequency = 30
-        self.drawing_scale = 65
-        self.drawing_start = (200, 500)
-        self.pos = (0,0)
-        self.yaw = 0
+        self.Nparticles = 200
+
         self.detected_aruco_markers = {}
-        #Some GUI to see if points are being updated
-        self.root = tk.Tk()
-        self.canvas = tk.Canvas(self.root, width=1200, height=800)
-        self.canvas.pack()
+
+        self.particleSet = ParticleSet(self.Nparticles)
+        for i in range(self.Nparticles):
+            #Make them random
+            self.particleSet.add(Particle(3,5*np.array([random.random(),random.random(),0]).astype(float)))
         
         # Initialize the ROS node
         rospy.init_node('slam_node')
@@ -58,39 +59,47 @@ class PoseNode:
         """
 
         # Do something here at a fixed rate
-        self.update_display()
+        pass
 
 
     def callback_pose_topic(self, msg):
         """
         Callback function for the subscriber of the topic '/aruco_topic'.
         """
-        point = msg.pose.pose.position #x, y, z
-        quaternion = msg.pose.pose.orientation #x, y, z, w
-        self.pos = (point.x, point.y)
-        self.yaw = quaternion_to_yaw([quaternion.x, quaternion.y, quaternion.z, quaternion.w])
-        twist = msg.twist.twist
-        u = [twist.linear, twist.angular]
-        rospy.loginfo('x: %f, y: %f, z: %f, w: %f, yaw: %f', quaternion.x, quaternion.y, quaternion.z, quaternion.w, self.yaw)
-        #rospy.loginfo('x: %f, y: %f, z: %f, ax: %f, ay: %f, az: %f', u[0].x, u[0].y, u[0].z, u[1].x, u[1].y, u[1].z)
+        try:
+            delta_t = msg.header.stamp.secs + msg.header.stamp.nsecs/1000000000.0 - self.pose_ts
+        except:
+            delta_t = 0.1
         self.pose_ts = msg.header.stamp.secs + msg.header.stamp.nsecs/1000000000.0
-        rospy.loginfo(self.pose_ts)
+        twist = msg.twist.twist
+        u = [twist.linear.x, twist.angular.z]
+        for k in range(self.Nparticles):
+            fs.predict(u, self.particleSet, delta_t, k)
+        rospy.loginfo('Prediction step with linear velocity %f and angular velocity %f', u[0], u[1])
     
     def callback_aruco_topic(self, msg):
         """
         Callback function for the subscriber of the topic '/aruco_topic'.
         """
 
-        angle = self.yaw + math.pi
-        for t in msg.transforms:
-            marker_id = t.fiducial_id
-            rospy.loginfo('Received detection of marker: %s', t.fiducial_id)
-            x = t.transform.translation.z
-            y = -t.transform.translation.y
-            x = self.pos[0] + math.cos(angle) * x + math.sin(angle) * y
-            y = self.pos[1] + math.sin(angle) * x + math.cos(angle) * y
-            if marker_id not in self.detected_aruco_markers:
-                self.detected_aruco_markers[marker_id] = (x,y)
+        pass
+
+def quaternion_to_yaw(quaternion):
+    # Extract the yaw angle from the quaternion
+    yaw = math.atan2(2 * (quaternion[0] * quaternion[1] + quaternion[2] * quaternion[3]),
+                     1 - 2*(quaternion[1]**2 + quaternion[3]**2)) 
+    return yaw
+
+class Animater:
+    def __init__(self):
+
+        # Initialize some necessary variables here
+        self.drawing_scale = 65
+        self.drawing_start = (200, 500)
+        #Some GUI to see if points are being updated
+        self.root = tk.Tk()
+        self.canvas = tk.Canvas(self.root, width=1200, height=800)
+        self.canvas.pack()
 
     def update_display(self):
         self.canvas.delete('all')
@@ -119,20 +128,13 @@ class PoseNode:
         # Draw the arrow on the canvas
         self.canvas.create_polygon(x1, y1, x2, y2, x3, y3, fill="red")
 
-    def draw_markers(self):
+    def draw_markers(self, markers):
         # Draw a circle at each point
-        for name, (x, y) in self.detected_aruco_markers.items():
+        for name, (x, y, c) in markers.items():
             x = self.drawing_start[0] + self.drawing_scale * x
             y = self.drawing_start[1] + self.drawing_scale * y
             self.canvas.create_oval(x-5, y-5, x+5, y+5, fill='red')
             self.canvas.create_text(x, y-10, text=name)
-
-
-def quaternion_to_yaw(quaternion):
-    # Extract the yaw angle from the quaternion
-    yaw = math.atan2(2 * (quaternion[0] * quaternion[1] + quaternion[2] * quaternion[3]),
-                     1 - 2*(quaternion[1]**2 + quaternion[3]**2)) 
-    return yaw
 
 
         
@@ -140,7 +142,7 @@ def quaternion_to_yaw(quaternion):
 def main():
 
     # Create an instance of the ArucoNode class
-    pose_node = PoseNode()
+    pose_node = FastSlamNode()
 
     # Start the main loop to update the display
     pose_node.root.mainloop()
