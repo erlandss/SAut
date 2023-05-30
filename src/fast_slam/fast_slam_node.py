@@ -14,14 +14,16 @@ class FastSlamNode:
 
     def __init__(self):
 
+        self.Nmarkers = 43
         self.Nparticles = 200
+        self.timer_freq = 10
 
         self.detected_aruco_markers = {}
 
         self.particleSet = ParticleSet(self.Nparticles)
         for i in range(self.Nparticles):
             #Make them random
-            self.particleSet.add(Particle(3,5*np.array([random.random(),random.random(),0]).astype(float)))
+            self.particleSet.add(Particle(self.Nmarkers,5*np.array([random.random(),random.random(),0]).astype(float)))
         
         # Initialize the ROS node
         rospy.init_node('slam_node')
@@ -46,7 +48,7 @@ class FastSlamNode:
         """
         Here we create a timer to trigger the callback function at a fixed rate.
         """
-        self.timer = rospy.Timer(rospy.Duration(0.6), self.timer_callback)
+        self.timer = rospy.Timer(rospy.Duration(1/self.timer_freq), self.timer_callback)
         self.h_timerActivate = True
 
     def timer_callback(self, timer):
@@ -72,7 +74,9 @@ class FastSlamNode:
             delta_t = 0.1
         self.pose_ts = msg.header.stamp.secs + msg.header.stamp.nsecs/1000000000.0
         twist = msg.twist.twist
-        u = [twist.linear.x, twist.angular.z]
+        twist_covariance = msg.twist.covariance
+        u = np.array([twist.linear.x, twist.angular.z])
+        u_vars = np.array([twist_covariance[0], twist_covariance[5], twist_covariance[35]])
         for k in range(self.Nparticles):
             fs.predict(u, self.particleSet, delta_t, k)
         rospy.loginfo('Prediction step with linear velocity %f and angular velocity %f', u[0], u[1])
@@ -82,7 +86,11 @@ class FastSlamNode:
         Callback function for the subscriber of the topic '/aruco_topic'.
         """
 
-        pass
+        for marker in msg.transforms:
+            id = marker.fiducial_id
+            if id not in self.detected_aruco_markers:
+                self.detected_aruco_markers[id] = len(self.detected_aruco_markers.keys)
+            
 
 def quaternion_to_yaw(quaternion):
     # Extract the yaw angle from the quaternion
