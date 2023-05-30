@@ -45,7 +45,7 @@ class PoseNode:
         """
         Here we create a timer to trigger the callback function at a fixed rate.
         """
-        self.timer = rospy.Timer(rospy.Duration(0.5), self.timer_callback)
+        self.timer = rospy.Timer(rospy.Duration(0.6), self.timer_callback)
         self.h_timerActivate = True
 
     def timer_callback(self, timer):
@@ -76,12 +76,12 @@ class PoseNode:
         Callback function for the subscriber of the topic '/aruco_topic'.
         """
 
+        angle = self.yaw + math.pi
         for t in msg.transforms:
             marker_id = t.fiducial_id
             rospy.loginfo('Received detection of marker: %s', t.fiducial_id)
             x = t.transform.translation.z
             y = -t.transform.translation.y
-            angle = self.yaw + math.pi
             x = self.pos[0] + math.cos(angle) * x + math.sin(angle) * y
             y = self.pos[1] + math.sin(angle) * x + math.cos(angle) * y
             if marker_id not in self.detected_aruco_markers:
@@ -118,7 +118,7 @@ class PoseNode:
         # Draw a circle at each point
         for name, (x, y) in self.detected_aruco_markers.items():
             x = self.drawing_start[0] + self.drawing_scale * x
-            y = self.drawing_start[1] - self.drawing_scale * y
+            y = self.drawing_start[1] + self.drawing_scale * y
             self.canvas.create_oval(x-5, y-5, x+5, y+5, fill='red')
             self.canvas.create_text(x, y-10, text=name)
 
