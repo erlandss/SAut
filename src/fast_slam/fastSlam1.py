@@ -9,6 +9,7 @@ from matplotlib.animation import FuncAnimation
 
 #This may have to be changed to actual arucoIDs
 featureIDs =set()
+featureIDs = dict()
 R_robot2camera = R.from_euler("yx",[90,-90],degrees=True).inv()
 Q_t =np.array(0.001*np.eye(2))
 
@@ -107,44 +108,18 @@ class ParticleSet:
         return self.set.pop(i)
     
 
-### MAKING SOME ARTIFICIAL TEST DATA ###
+def predict2(u_t : np.ndarray, set : ParticleSet, k : int, covariances :  np.ndarray):
+    #u_t on the form (delta_x,delta_y,delta_theta)
+    xvar = covariances[0]
+    yvar = covariances[1]
+    thetavar = covariances[2]
+    cov_matrix = np.array([[xvar,0,0],[0,yvar,0],[0,0,thetavar]])
+    sampledInput = np.random.multivariate_normal(u_t,cov_matrix)
+    p = set.set[k]
 
-testSet =ParticleSet(200)
-
-for i in range(testSet.M):
-    #Make them random
-    testSet.add(Particle(3,5*np.array([random.random(),random.random(),0]).astype(float)))
-    # testSet.add(Particle(3,(np.array([0,0,0])).astype(float)))
-
-beacons = np.array([[3,2],[5,5],[1,4]])
-X_t1 = np.array([0,0,0])
-samplePositions = np.array([[1,1,0],[2,1,np.pi/4],[3,3,np.pi/4],[3,3,np.pi],[3,3,3*np.pi/2]])
-correlations = [0,0,1,2,0]
-
-# print(len(samplePositions))
-inputs =[]
-observations=[]
-
-for i in range(len(samplePositions)):
-    
-    newInput = [None]*2
-    deltaState = samplePositions[i]-X_t1
-    newInput[1]=np.arctan2(deltaState[1],deltaState[0])-X_t1[2]
-    newInput[0]=np.sqrt(pow(deltaState[1],2)+pow(deltaState[0],2))
-    inputs.append(newInput)
-
-    inputs.append(np.array([0,samplePositions[i,2]-np.arctan2(deltaState[1],deltaState[0])]))
-    X_t1 = samplePositions[i]
-
-for i in range(len(samplePositions)):
-    observations.append(h(samplePositions[i],beacons[correlations[i]]))
-# print(beacons[1])
-# print(samplePositions[2])
-# print(h(samplePositions[2],beacons[1]))
-# for i in range(10):
-#     print(inputs[i])
-
-### ###
+    (p.x)[2] += sampledInput[2]
+    (p.x)[0] += sampledInput[0]
+    (p.x)[1] += sampledInput[1]
 
 def predict(u_t : np.ndarray, set :ParticleSet, delta_t : float,k :int):
     p = set.set[k]
@@ -237,48 +212,90 @@ def FastSLAM(z_t: np.ndarray, c_t : int ,u_t : np.ndarray, Y_t1 :ParticleSet, de
     return Yt
 
 
-points = []
-points.append(np.array([testSet.set[i].x for i in range(testSet.M)]))
-for i in range(5):
-    particlePoints=[]
-    for j in range(testSet.M):
-
-        # print(testSet.set[j].x)
-        predict(inputs[2*i],testSet,1,j)
-        # print(testSet.set[j].x)
-        particlePoints.append(testSet.set[j].x)
-
-    points.append(np.array(particlePoints))
-    particlePoints=[]
-    newSet = FastSLAM(observations[i],correlations[i],inputs[2*i+1],testSet,1)
-    # print(observations[i])
-    for j in range(testSet.M):
-        particlePoints.append(newSet.set[j].x)
-    points.append(np.array(particlePoints))
-    # print(particlePoints)
-    testSet=newSet
 
 
-# for i in range(10):
+
+def main():
+    ### MAKING SOME ARTIFICIAL TEST DATA ###
+
+    testSet =ParticleSet(200)
+
+    for i in range(testSet.M):
+        #Make them random
+        testSet.add(Particle(3,5*np.array([random.random(),random.random(),0]).astype(float)))
+        # testSet.add(Particle(3,(np.array([0,0,0])).astype(float)))
+
+    beacons = np.array([[3,2],[5,5],[1,4]])
+    X_t1 = np.array([0,0,0])
+    samplePositions = np.array([[1,1,0],[2,1,np.pi/4],[3,3,np.pi/4],[3,3,np.pi],[3,3,3*np.pi/2]])
+    correlations = [0,0,1,2,0]
+
+    # print(len(samplePositions))
+    inputs =[]
+    observations=[]
+
+    for i in range(len(samplePositions)):
+        
+        newInput = [None]*2
+        deltaState = samplePositions[i]-X_t1
+        newInput[1]=np.arctan2(deltaState[1],deltaState[0])-X_t1[2]
+        newInput[0]=np.sqrt(pow(deltaState[1],2)+pow(deltaState[0],2))
+        inputs.append(newInput)
+
+        inputs.append(np.array([0,samplePositions[i,2]-np.arctan2(deltaState[1],deltaState[0])]))
+        X_t1 = samplePositions[i]
+
+    for i in range(len(samplePositions)):
+        observations.append(h(samplePositions[i],beacons[correlations[i]]))
+    # print(beacons[1])
+    # print(samplePositions[2])
+    # print(h(samplePositions[2],beacons[1]))
+    # for i in range(10):
+    #     print(inputs[i])
+
+    points = []
+    points.append(np.array([testSet.set[i].x for i in range(testSet.M)]))
+    for i in range(5):
+        particlePoints=[]
+        for j in range(testSet.M):
+
+            # print(testSet.set[j].x)
+            predict(inputs[2*i],testSet,1,j)
+            # print(testSet.set[j].x)
+            particlePoints.append(testSet.set[j].x)
+
+        points.append(np.array(particlePoints))
+        particlePoints=[]
+        newSet = FastSLAM(observations[i],correlations[i],inputs[2*i+1],testSet,1)
+        # print(observations[i])
+        for j in range(testSet.M):
+            particlePoints.append(newSet.set[j].x)
+        points.append(np.array(particlePoints))
+        # print(particlePoints)
+        testSet=newSet
 
 
-fig, ax = plt.subplots(1, 1)
-fig.set_size_inches(5,5)
-
-def animate(i):
-    ax.clear()
-    # Get the point from the points list at index i
-    pointList = points[i]
-    # Plot that point using the x and y coordinates
-    ax.scatter(pointList[:,0], pointList[:,1], color='green', 
-            label='original', marker='.')
-    ax.scatter(beacons[:,0],beacons[:,1],color='red',marker='^')
-    # Set the x and y axis to display a fixed range
-    ax.set_xlim([-1, 8])
-    ax.set_ylim([-1, 8])
-ani = FuncAnimation(fig, animate, frames=len(points),
-                    interval=500, repeat=False)
-plt.show()
-plt.close()
+    # for i in range(10):
 
 
+    fig, ax = plt.subplots(1, 1)
+    fig.set_size_inches(5,5)
+
+    def animate(i):
+        ax.clear()
+        # Get the point from the points list at index i
+        pointList = points[i]
+        # Plot that point using the x and y coordinates
+        ax.scatter(pointList[:,0], pointList[:,1], color='green', 
+                label='original', marker='.')
+        ax.scatter(beacons[:,0],beacons[:,1],color='red',marker='^')
+        # Set the x and y axis to display a fixed range
+        ax.set_xlim([-1, 8])
+        ax.set_ylim([-1, 8])
+    ani = FuncAnimation(fig, animate, frames=len(points),
+                        interval=500, repeat=False)
+    plt.show()
+    plt.close()
+
+if __name__='__main__':
+    main()
