@@ -19,12 +19,15 @@ class FastSlamNode:
         self.timer_freq = 10
 
         self.detected_aruco_markers = {}
+        self.pose = (0, 0, 0)
 
         self.particleSet = ParticleSet(self.Nparticles)
         for i in range(self.Nparticles):
             #Make them random
             self.particleSet.add(Particle(self.Nmarkers,5*np.array([random.random(),random.random(),0]).astype(float)))
         
+        self.animate = Animater
+
         # Initialize the ROS node
         rospy.init_node('slam_node')
         rospy.loginfo_once('Slam node has started')
@@ -81,6 +84,21 @@ class FastSlamNode:
             fs.predict(u, self.particleSet, delta_t, k)
         rospy.loginfo('Prediction step with linear velocity %f and angular velocity %f', u[0], u[1])
     
+    def callback_pose_topic2(self, msg):
+        """
+        Callback function for the subscriber of the topic '/aruco_topic'.
+        """
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+        yaw = quaternion_to_yaw(msg.pose.pose.orientation)
+        covariances = np.array([msg.pose.covariance[0], msg.pose.covariance[0], msg.pose.covariance[0]])
+        u = np.array([x - self.pose[0], y - self.pose[1], yaw - self.pose[2]])
+        for k in range(self.Nparticles):
+            fs.predict2(u, self.particleSet, k, covariances)
+        self.pose = (x, y, yaw)
+        rospy.loginfo('Prediction step with linear velocity %f and angular velocity %f', u[0], u[1])
+
+    
     def callback_aruco_topic(self, msg):
         """
         Callback function for the subscriber of the topic '/aruco_topic'.
@@ -90,12 +108,20 @@ class FastSlamNode:
             id = marker.fiducial_id
             if id not in self.detected_aruco_markers:
                 self.detected_aruco_markers[id] = len(self.detected_aruco_markers.keys)
+            posCameraFrame = np.array([marker.transform.translation.x, marker.transform.translation.y,
+                                       marker.transform.translation.z])
+            self.particleSet = fs.FastSLAM(posCameraFrame, self.detected_aruco_markers[id], np.array([0,0,0]),
+                                 self.particleSet, None)
+
             
 
 def quaternion_to_yaw(quaternion):
     # Extract the yaw angle from the quaternion
-    yaw = math.atan2(2 * (quaternion[0] * quaternion[1] + quaternion[2] * quaternion[3]),
-                     1 - 2*(quaternion[1]**2 + quaternion[3]**2)) 
+    qw = quaternion.w
+    qx = quaternion.x
+    qy = quaternion.y
+    qz = quaternion.z
+    yaw = math.atan2(2.0 * (qw * qz + qx * qy), 1.0 - 2.0 * (qy * qy + qz * qz))
     return yaw
 
 class Animater:
@@ -109,7 +135,7 @@ class Animater:
         self.canvas = tk.Canvas(self.root, width=1200, height=800)
         self.canvas.pack()
 
-    def update_display(self):
+    def update_display(self, particleSet : ParticleSet):
         self.canvas.delete('all')
         self.draw_arrow(self.pos[0], self.pos[1], self.yaw)
         self.draw_markers()
@@ -157,6 +183,7 @@ def main():
 
     # Spin to keep the script for exiting
     rospy.spin()
+
 
 if __name__ == '__main__':
     main()

@@ -45,7 +45,7 @@ class PoseNode:
         """
         Here we create a timer to trigger the callback function at a fixed rate.
         """
-        self.timer = rospy.Timer(rospy.Duration(0.6), self.timer_callback)
+        self.timer = rospy.Timer(rospy.Duration(0.8), self.timer_callback)
         self.h_timerActivate = True
 
     def timer_callback(self, timer):
@@ -68,26 +68,27 @@ class PoseNode:
         point = msg.pose.pose.position #x, y, z
         quaternion = msg.pose.pose.orientation #x, y, z, w
         self.pos = (point.x, point.y)
-        self.yaw = quaternion_to_yaw([quaternion.x, quaternion.y, quaternion.z, quaternion.w])
+        self.yaw = quaternion_to_yaw(quaternion)
         twist = msg.twist.twist
         u = [twist.linear, twist.angular]
         rospy.loginfo('x: %f, y: %f, z: %f, w: %f, yaw: %f', quaternion.x, quaternion.y, quaternion.z, quaternion.w, self.yaw)
         #rospy.loginfo('x: %f, y: %f, z: %f, ax: %f, ay: %f, az: %f', u[0].x, u[0].y, u[0].z, u[1].x, u[1].y, u[1].z)
-        self.pose_ts = msg.header.stamp.secs + msg.header.stamp.nsecs/1000000000.0
-        rospy.loginfo(self.pose_ts)
+        #self.pose_ts = msg.header.stamp.secs + msg.header.stamp.nsecs/1000000000.0
+        #rospy.loginfo(self.pose_ts)
     
     def callback_aruco_topic(self, msg):
         """
         Callback function for the subscriber of the topic '/aruco_topic'.
         """
 
-        angle = self.yaw + math.pi
+        angle = -self.yaw
         for t in msg.transforms:
             marker_id = t.fiducial_id
-            rospy.loginfo('Received detection of marker: %s', t.fiducial_id)
             x = t.transform.translation.z
             y = -t.transform.translation.y
-            x = self.pos[0] + math.cos(angle) * x + math.sin(angle) * y
+            rospy.loginfo('Received detection of marker %s at position (%f, %f) relative to robot at robot angle %f',
+                           marker_id, x, y, angle)
+            x = self.pos[0] + math.cos(angle) * x - math.sin(angle) * y
             y = self.pos[1] + math.sin(angle) * x + math.cos(angle) * y
             if marker_id not in self.detected_aruco_markers:
                 self.detected_aruco_markers[marker_id] = (x,y)
@@ -100,7 +101,7 @@ class PoseNode:
 
 
     def draw_arrow(self, x, y, angle):
-        angle = angle + math.pi/2
+        angle = -(angle+math.pi/2)
 
         marker_length = 15  # Length of the arrow
         
@@ -123,16 +124,20 @@ class PoseNode:
         # Draw a circle at each point
         for name, (x, y) in self.detected_aruco_markers.items():
             x = self.drawing_start[0] + self.drawing_scale * x
-            y = self.drawing_start[1] + self.drawing_scale * y
+            y = self.drawing_start[1] - self.drawing_scale * y
             self.canvas.create_oval(x-5, y-5, x+5, y+5, fill='red')
             self.canvas.create_text(x, y-10, text=name)
 
 
 def quaternion_to_yaw(quaternion):
     # Extract the yaw angle from the quaternion
-    yaw = math.atan2(2 * (quaternion[0] * quaternion[1] + quaternion[2] * quaternion[3]),
-                     1 - 2*(quaternion[1]**2 + quaternion[3]**2)) 
+    qw = quaternion.w
+    qx = quaternion.x
+    qy = quaternion.y
+    qz = quaternion.z
+    yaw = math.atan2(2.0 * (qw * qz + qx * qy), 1.0 - 2.0 * (qy * qy + qz * qz))
     return yaw
+
 
 
         

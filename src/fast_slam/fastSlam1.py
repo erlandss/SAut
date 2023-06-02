@@ -149,10 +149,6 @@ def FastSLAM(z_t: np.ndarray, c_t : int ,u_t : np.ndarray, Y_t1 :ParticleSet, de
         # (currentParticle.x)[2] +=delta_t*u_t[1]
         # (currentParticle.x)[0] +=delta_t*np.cos((currentParticle.x)[2])*u_t[0]
         # (currentParticle.x)[1] +=delta_t*np.sin((currentParticle.x)[2])*u_t[0]
-        
-        
-        
-
 
         j=c_t
         
@@ -297,5 +293,6 @@ def main():
     plt.show()
     plt.close()
 
-if __name__='__main__':
+
+if __name__== '__main__':
     main()

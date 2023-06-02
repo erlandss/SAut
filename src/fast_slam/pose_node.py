@@ -98,7 +98,7 @@ class PoseNode:
 def quaternion_to_yaw(quaternion):
     # Extract the yaw angle from the quaternion
     yaw = math.atan2(2 * (quaternion[0] * quaternion[1] + quaternion[2] * quaternion[3]),
-                     1 - 2*(quaternion[1]**2 + quaternion[3]**2)) 
+                     1 - 2*(quaternion[1]**2 + quaternion[2]**2)) 
     return yaw
 
 
