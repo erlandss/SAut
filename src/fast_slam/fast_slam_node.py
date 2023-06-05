@@ -16,17 +16,17 @@ class FastSlamNode:
 
         self.Nmarkers = 43
         self.Nparticles = 200
-        self.timer_freq = 10
+        self.timer_freq = 1
 
-        self.detected_aruco_markers = {}
+        self.detected_aruco_markers = []
         self.pose = (0, 0, 0)
 
         self.particleSet = ParticleSet(self.Nparticles)
-        for i in range(self.Nparticles):
+        for _ in range(self.Nparticles):
             #Make them random
-            self.particleSet.add(Particle(self.Nmarkers,5*np.array([random.random(),random.random(),0]).astype(float)))
+            self.particleSet.add( Particle(self.Nmarkers, 5*np.array([random.random(),random.random(),0]).astype(float)))
         
-        self.animate = Animater
+        self.animate = Animater()
 
         # Initialize the ROS node
         rospy.init_node('slam_node')
@@ -44,7 +44,7 @@ class FastSlamNode:
         """
 
         # Subscribe to pose and aruco topics
-        self.sub_pose = rospy.Subscriber('/pose', Odometry, self.callback_pose_topic)
+        self.sub_pose = rospy.Subscriber('/pose', Odometry, self.callback_pose_topic2)
         self.sub_aruco = rospy.Subscriber('/fiducial_transforms', FiducialTransformArray, self.callback_aruco_topic)
 
     def initialize_timer(self):
@@ -58,13 +58,10 @@ class FastSlamNode:
         """Here you should invoke methods to perform the logic computations of your algorithm.
         Note, the timer object is not used here, but it is passed as an argument to the callback by default.
         This callback is called at a fixed rate as defined in the initialization of the timer.
-
-        At the end of the calculations of your EKF, UKF, Particle Filer, or SLAM algorithm,
-        you should publish the results to the corresponding topics.
         """
 
         # Do something here at a fixed rate
-        pass
+        self.animate.update_display(self.particleSet, self.detected_aruco_markers)
 
 
     def callback_pose_topic(self, msg):
@@ -107,11 +104,11 @@ class FastSlamNode:
         for marker in msg.transforms:
             id = marker.fiducial_id
             if id not in self.detected_aruco_markers:
-                self.detected_aruco_markers[id] = len(self.detected_aruco_markers.keys)
+                self.detected_aruco_markers.append(id)
             posCameraFrame = np.array([marker.transform.translation.x, marker.transform.translation.y,
                                        marker.transform.translation.z])
-            self.particleSet = fs.FastSLAM(posCameraFrame, self.detected_aruco_markers[id], np.array([0,0,0]),
-                                 self.particleSet, None)
+            self.particleSet = fs.FastSLAM(posCameraFrame, self.detected_aruco_markers.index(id),
+                                            np.array([0,0,0]), self.particleSet, 0)
 
             
 
@@ -135,16 +132,19 @@ class Animater:
         self.canvas = tk.Canvas(self.root, width=1200, height=800)
         self.canvas.pack()
 
-    def update_display(self, particleSet : ParticleSet):
+    def start_display(self):
+        self.root.mainloop()
+
+    def update_display(self, particleSet : ParticleSet, beacons: list):
         self.canvas.delete('all')
-        self.draw_arrow(self.pos[0], self.pos[1], self.yaw)
-        self.draw_markers()
-
-
+        robot_pos = estimate_robot_pos(particleSet)
+        beacons_pos = estimate_beacons_pos(particleSet, beacons)
+        self.draw_arrow(robot_pos[0], robot_pos[1], robot_pos[2])
+        self.draw_beacons(beacons_pos)
+        print("Display updated")
 
     def draw_arrow(self, x, y, angle):
-        angle = angle + math.pi/2
-
+        angle = angle + math.pi
         marker_length = 15  # Length of the arrow
         
         # Calculate the coordinates of the arrow points
@@ -162,24 +162,53 @@ class Animater:
         # Draw the arrow on the canvas
         self.canvas.create_polygon(x1, y1, x2, y2, x3, y3, fill="red")
 
-    def draw_markers(self, markers):
+    def draw_beacons(self, beacons):
         # Draw a circle at each point
-        for name, (x, y, c) in markers.items():
-            x = self.drawing_start[0] + self.drawing_scale * x
-            y = self.drawing_start[1] + self.drawing_scale * y
-            self.canvas.create_oval(x-5, y-5, x+5, y+5, fill='red')
-            self.canvas.create_text(x, y-10, text=name)
+        for beacon in beacons:
+            id = beacon["id"]
+            pos = beacon["pos"]
+            x = self.drawing_start[0] + self.drawing_scale * pos[0]
+            y = self.drawing_start[1] - self.drawing_scale * pos[1]
+            covar = beacon["covar"]
+            w, v = np.linalg.eig(covar)
+            width = 13000 * np.abs(w)
+            angle = math.atan2(v[1, 0].real, v[0, 0].real)
+            # Coordinates for the ellipse
+            x0 = x - width[0] / 2
+            y0 = y - width[1] / 2
+            x1 = x + width[0] / 2
+            y1 = y + width[1] / 2
+            self.canvas.create_oval(x0, y0, x1, y1)
+            self.canvas.create_text(x, y-15, text=id)
 
+def estimate_robot_pos(particleSet : ParticleSet):
+    Nparticles = particleSet.M
+    sumWeights = np.sum(particleSet.weights)
+    meanPos = np.zeros((3,))
+    for i in range(Nparticles):
+        meanPos += (particleSet.weights[i]/sumWeights)*particleSet.set[i].x
+    return meanPos
 
+def estimate_beacons_pos(particleSet : ParticleSet, beacons: list):
+    Nparticles = particleSet.M
+    NknownBeacons = len(beacons)
+    sumWeights = np.sum(particleSet.weights)
+    #initialize beacons as dicts
+    beacons = [{"id" : beacons[i], "pos" : np.zeros((2, )), "covar" : np.zeros((2, 2))} 
+               for i in range(NknownBeacons)]
+    for i in range(Nparticles):
+        for j in range(NknownBeacons):
+            beacons[j]["pos"] += (particleSet.weights[i]/sumWeights) * particleSet.set[i].features[j]["mean"]
+            beacons[j]["covar"] += (particleSet.weights[i]/sumWeights) * particleSet.set[i].features[j]["covariance"]
+    return beacons
+            
         
     
 def main():
 
     # Create an instance of the ArucoNode class
-    pose_node = FastSlamNode()
-
-    # Start the main loop to update the display
-    pose_node.root.mainloop()
+    node = FastSlamNode()
+    node.animate.start_display()
 
     # Spin to keep the script for exiting
     rospy.spin()

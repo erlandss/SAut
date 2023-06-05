@@ -100,6 +100,7 @@ class ParticleSet:
     def __init__(self,M:int):
         self.M=M
         self.set =[]
+        self.weights = np.ones((self.M))*(1/self.M)
     #appends a particle to the list
     def add(self,particle:Particle):
         self.set.append(particle)
@@ -189,10 +190,10 @@ def FastSLAM(z_t: np.ndarray, c_t : int ,u_t : np.ndarray, Y_t1 :ParticleSet, de
         # for i in featureIDs:
         #     #leave unchanged
         #     print()
-    featureIDs.add(j)
+    #featureIDs.add(j)
 
     Yt = ParticleSet(yt1.M)
-
+    Yt.weights = weights
     drawnIndexes = systematic_resample(weights)
     # print(drawnIndexes)
     # xyNice = np.array([p.x[:2] for p in yt1.set])
