@@ -10,6 +10,8 @@ from fiducial_msgs.msg import FiducialTransformArray
 import fastSlam1 as fs
 from fastSlam1 import Particle, ParticleSet
 
+usingVelocities = False
+
 class FastSlamNode:
 
     def __init__(self):
@@ -44,7 +46,7 @@ class FastSlamNode:
         """
 
         # Subscribe to pose and aruco topics
-        self.sub_pose = rospy.Subscriber('/pose', Odometry, self.callback_pose_topic2)
+        self.sub_pose = rospy.Subscriber('/pose', Odometry, self.callback_pose_topic)
         self.sub_aruco = rospy.Subscriber('/fiducial_transforms', FiducialTransformArray, self.callback_aruco_topic)
 
     def initialize_timer(self):
@@ -62,53 +64,57 @@ class FastSlamNode:
 
         # Do something here at a fixed rate
         self.animate.update_display(self.particleSet, self.detected_aruco_markers)
-
-
+    
     def callback_pose_topic(self, msg):
         """
         Callback function for the subscriber of the topic '/aruco_topic'.
         """
-        try:
-            delta_t = msg.header.stamp.secs + msg.header.stamp.nsecs/1000000000.0 - self.pose_ts
-        except:
-            delta_t = 0.1
-        self.pose_ts = msg.header.stamp.secs + msg.header.stamp.nsecs/1000000000.0
-        twist = msg.twist.twist
-        twist_covariance = msg.twist.covariance
-        u = np.array([twist.linear.x, twist.angular.z])
-        u_vars = np.array([twist_covariance[0], twist_covariance[5], twist_covariance[35]])
-        for k in range(self.Nparticles):
-            fs.predict(u, self.particleSet, delta_t, k)
-        rospy.loginfo('Prediction step with linear velocity %f and angular velocity %f', u[0], u[1])
-    
-    def callback_pose_topic2(self, msg):
-        """
-        Callback function for the subscriber of the topic '/aruco_topic'.
-        """
-        x = msg.pose.pose.position.x
-        y = msg.pose.pose.position.y
-        yaw = quaternion_to_yaw(msg.pose.pose.orientation)
-        covariances = np.array([msg.pose.covariance[0], msg.pose.covariance[0], msg.pose.covariance[0]])
-        u = np.array([x - self.pose[0], y - self.pose[1], yaw - self.pose[2]])
-        for k in range(self.Nparticles):
-            fs.predict2(u, self.particleSet, k, covariances)
-        self.pose = (x, y, yaw)
-        rospy.loginfo('Prediction step with linear velocity %f and angular velocity %f', u[0], u[1])
+        if usingVelocities:
+            try:
+                delta_t = msg.header.stamp.secs + msg.header.stamp.nsecs/1000000000.0 - self.pose_ts
+            except:
+                delta_t = 0.1
+            self.pose_ts = msg.header.stamp.secs + msg.header.stamp.nsecs/1000000000.0
+            twist = msg.twist.twist
+            twist_covariance = msg.twist.covariance
+            u = np.array([twist.linear.x, twist.angular.z])
+            u_vars = np.array([twist_covariance[0], twist_covariance[5], twist_covariance[35]])
+            for k in range(self.Nparticles):
+                fs.predict(u, self.particleSet, delta_t, k, u_vars, usingVelocities)
+            rospy.loginfo('Prediction step with linear velocity %f and angular velocity %f', u[0], u[1])
+        else:
+            x = msg.pose.pose.position.x
+            y = msg.pose.pose.position.y
+            yaw = quaternion_to_yaw(msg.pose.pose.orientation)
+            covariances = np.array([msg.pose.covariance[0], msg.pose.covariance[0], msg.pose.covariance[0]])
+            u = np.array([x - self.pose[0], y - self.pose[1], yaw - self.pose[2]])
+            for k in range(self.Nparticles):
+                fs.predict(u, self.particleSet, None, k, covariances, usingVelocities)
+            self.pose = (x, y, yaw)
+            rospy.loginfo('Prediction step with linear velocity %f and angular velocity %f', u[0], u[1])
 
     
     def callback_aruco_topic(self, msg):
         """
         Callback function for the subscriber of the topic '/aruco_topic'.
         """
-
         for marker in msg.transforms:
             id = marker.fiducial_id
             if id not in self.detected_aruco_markers:
                 self.detected_aruco_markers.append(id)
+                rospy.loginfo('Marker %s detected for the first time giving a total of %d unique markers',
+                              id, len(self.detected_aruco_markers))
             posCameraFrame = np.array([marker.transform.translation.x, marker.transform.translation.y,
                                        marker.transform.translation.z])
-            self.particleSet = fs.FastSLAM(posCameraFrame, self.detected_aruco_markers.index(id),
-                                            np.array([0,0,0]), self.particleSet, 0)
+            rospy.loginfo('Received detection of marker %s (number: %d) at relative position (%f, %f, %f)',
+                           id, self.detected_aruco_markers.index(id), 
+                           posCameraFrame[0], posCameraFrame[1], posCameraFrame[2])
+            if usingVelocities:
+                self.particleSet = fs.FastSLAM(posCameraFrame, self.detected_aruco_markers.index(id),
+                                            np.array([0,0]), self.particleSet, None, usingVelocities)
+            else:
+                self.particleSet = fs.FastSLAM(posCameraFrame, self.detected_aruco_markers.index(id),
+                                            np.array([0,0,0]), self.particleSet, None, usingVelocities)
 
             
 
@@ -144,7 +150,7 @@ class Animater:
         print("Display updated")
 
     def draw_arrow(self, x, y, angle):
-        angle = angle + math.pi
+        angle = -(angle+math.pi/2)
         marker_length = 15  # Length of the arrow
         
         # Calculate the coordinates of the arrow points
@@ -171,7 +177,7 @@ class Animater:
             y = self.drawing_start[1] - self.drawing_scale * pos[1]
             covar = beacon["covar"]
             w, v = np.linalg.eig(covar)
-            width = 13000 * np.abs(w)
+            width = 20000 * np.abs(w)
             angle = math.atan2(v[1, 0].real, v[0, 0].real)
             # Coordinates for the ellipse
             x0 = x - width[0] / 2

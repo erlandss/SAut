@@ -9,7 +9,6 @@ from matplotlib.animation import FuncAnimation
 
 #This may have to be changed to actual arucoIDs
 featureIDs =set()
-featureIDs = dict()
 R_robot2camera = R.from_euler("yx",[90,-90],degrees=True).inv()
 Q_t =np.array(0.001*np.eye(2))
 
@@ -72,11 +71,15 @@ def systematic_resample(weights):
     cumulative_sum = np.cumsum(weights)
     i, j = 0, 0
     while i < N:
-        if positions[i] < cumulative_sum[j]:
-            indexes[i] = j
-            i += 1
-        else:
-            j += 1
+        try:
+            if positions[i] < cumulative_sum[j]:
+                indexes[i] = j
+                i += 1
+            else:
+                j += 1
+        except:
+            print(weights)
+            break
     return indexes
 
 
@@ -109,26 +112,32 @@ class ParticleSet:
         return self.set.pop(i)
     
 
-def predict2(u_t : np.ndarray, set : ParticleSet, k : int, covariances :  np.ndarray):
-    #u_t on the form (delta_x,delta_y,delta_theta)
-    xvar = covariances[0]
-    yvar = covariances[1]
-    thetavar = covariances[2]
-    cov_matrix = np.array([[xvar,0,0],[0,yvar,0],[0,0,thetavar]])
-    sampledInput = np.random.multivariate_normal(u_t,cov_matrix)
-    p = set.set[k]
+def predict(u_t : np.ndarray, set :ParticleSet, delta_t : float,k :int,covariances: np.ndarray, usingVelocities = False):
+    if usingVelocities:
+        if(u_t[0]!=0 or u_t[1]!=0):
 
-    (p.x)[2] += sampledInput[2]
-    (p.x)[0] += sampledInput[0]
-    (p.x)[1] += sampledInput[1]
+            xvar = covariances[0]
+            thetavar = covariances[1]
+            x_theta_cov = covariances[2]
+            cov_matrix = np.array([[xvar,x_theta_cov],[x_theta_cov,thetavar]])
+            sampledInput = np.random.multivariate_normal(u_t,cov_matrix)
+            p = set.set[k]
 
-def predict(u_t : np.ndarray, set :ParticleSet, delta_t : float,k :int):
-    p = set.set[k]
-    (p.x)[2] +=delta_t*(u_t[1])
-    (p.x)[0] +=delta_t*np.cos((p.x)[2])*u_t[0]*(1+15*(random.random()-0.5)/50)
-    (p.x)[1] +=delta_t*np.sin((p.x)[2])*u_t[0]*(1+15*(random.random()-0.5)/50)
-    # print(p.x)
-    # print(delta_t*np.cos((p.x)[2])*u_t[0],delta_t*np.sin((p.x)[2])*u_t[0],delta_t*u_t[1])
+            (p.x)[2] +=delta_t*sampledInput[1]
+            (p.x)[0] +=delta_t*np.cos((p.x)[2])*sampledInput[0]
+            (p.x)[1] +=delta_t*np.sin((p.x)[2])*sampledInput[0]
+    else:
+        if(u_t[0]!=0 or u_t[1]!=0 or u_t[2]!=0):
+            xvar = covariances[0]
+            yvar = covariances[1]
+            thetavar = covariances[2]
+            cov_matrix = np.array([[xvar,0,0],[0,yvar,0],[0,0,thetavar]])
+            sampledInput = np.random.multivariate_normal(u_t,cov_matrix)
+            p = set.set[k]
+
+            (p.x)[2] += sampledInput[2]
+            (p.x)[0] += sampledInput[0]
+            (p.x)[1] += sampledInput[1]
 
 
 
@@ -138,7 +147,7 @@ def predict(u_t : np.ndarray, set :ParticleSet, delta_t : float,k :int):
 #TODO Currently the particles assumes that feature with identifier "k" is at index k
 #TODO Fix this^ such that the right feature is acessed without being in index k
 #TODO Update step, requires a definition of the observation model h(x,mu)        
-def FastSLAM(z_t: np.ndarray, c_t : int ,u_t : np.ndarray, Y_t1 :ParticleSet, delta_t : float):
+def FastSLAM(z_t: np.ndarray, c_t : int ,u_t : np.ndarray, Y_t1 :ParticleSet, delta_t : float, usingVelocities = False):
     yt1 = Y_t1
     weights = np.ones((yt1.M))*(1/yt1.M)
     
@@ -146,7 +155,7 @@ def FastSLAM(z_t: np.ndarray, c_t : int ,u_t : np.ndarray, Y_t1 :ParticleSet, de
         measurement = z_t
         currentParticle = yt1.set[k]
         #Predict pose
-        predict(u_t,yt1,delta_t,k)
+        predict(u_t, yt1, delta_t, k, usingVelocities)
         # (currentParticle.x)[2] +=delta_t*u_t[1]
         # (currentParticle.x)[0] +=delta_t*np.cos((currentParticle.x)[2])*u_t[0]
         # (currentParticle.x)[1] +=delta_t*np.sin((currentParticle.x)[2])*u_t[0]
@@ -191,7 +200,7 @@ def FastSLAM(z_t: np.ndarray, c_t : int ,u_t : np.ndarray, Y_t1 :ParticleSet, de
         #     #leave unchanged
         #     print()
     #featureIDs.add(j)
-
+    featureIDs.add(j)
     Yt = ParticleSet(yt1.M)
     Yt.weights = weights
     drawnIndexes = systematic_resample(weights)
