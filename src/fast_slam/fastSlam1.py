@@ -10,7 +10,7 @@ from matplotlib.animation import FuncAnimation
 #This may have to be changed to actual arucoIDs
 featureIDs =set()
 R_robot2camera = R.from_euler("yx",[90,-90],degrees=True).inv()
-Q_t =np.array(0.001*np.eye(2))
+Q_t =np.array(0.0025*np.eye(2))
 
 #Observation model
 def h(state,mu):
@@ -139,14 +139,7 @@ def predict(u_t : np.ndarray, set :ParticleSet, delta_t : float,k :int,covarianc
             (p.x)[0] += sampledInput[0]
             (p.x)[1] += sampledInput[1]
 
-
-
-# inputs=[[1,0],[0,1],[1,1]]
-
-
-#TODO Currently the particles assumes that feature with identifier "k" is at index k
-#TODO Fix this^ such that the right feature is acessed without being in index k
-#TODO Update step, requires a definition of the observation model h(x,mu)        
+  
 def FastSLAM(z_t: np.ndarray, c_t : int ,u_t : np.ndarray, Y_t1 :ParticleSet, delta_t : float, usingVelocities = False):
     yt1 = Y_t1
     weights = np.ones((yt1.M))*(1/yt1.M)
@@ -156,20 +149,13 @@ def FastSLAM(z_t: np.ndarray, c_t : int ,u_t : np.ndarray, Y_t1 :ParticleSet, de
         currentParticle = yt1.set[k]
         #Predict pose
         predict(u_t, yt1, delta_t, k, usingVelocities)
-        # (currentParticle.x)[2] +=delta_t*u_t[1]
-        # (currentParticle.x)[0] +=delta_t*np.cos((currentParticle.x)[2])*u_t[0]
-        # (currentParticle.x)[1] +=delta_t*np.sin((currentParticle.x)[2])*u_t[0]
 
         j=c_t
         
         if j not in featureIDs:
             currentParticle.features[j]["mean"] = h_inv(measurement,currentParticle.x)
-            # print("initial mean:")
-            # print(currentParticle.features[j]["mean"] )
             jacobian = h_jacobian(currentParticle.x)
             currentParticle.features[j]["covariance"] = np.matmul(np.matmul(linalg.inv(jacobian),Q_t),np.transpose(linalg.inv(jacobian)))
-            #TODO Maybe store particle weights in the set, rather than in this fnc?
-            # print("Initialized covariance:",currentParticle.features[j]["covariance"],"\n")
         else:
             #predict measurement:
             z_hat = h(currentParticle.x,currentParticle.features[j]["mean"])
@@ -185,33 +171,16 @@ def FastSLAM(z_t: np.ndarray, c_t : int ,u_t : np.ndarray, Y_t1 :ParticleSet, de
             measurement =np.array([measurement[0],measurement[2]])
 
             currentParticle.features[j]["mean"] += np.matmul(K,(measurement-z_hat))
-            # print("Updated mean:")
-            # print(currentParticle.features[j]["mean"])
             #Update covariance:
             currentParticle.features[j]["covariance"] = np.matmul((np.eye(2)-np.matmul(K,jacobian)),currentParticle.features[j]["covariance"])
-            # print("Updated covariance:",k,currentParticle.features[j]["covariance"],"\n")
             #update weight/importance factor:
             weights[k] = np.power(linalg.det(2*np.pi*Q),-0.5)*np.exp(-0.5*np.matmul(np.transpose((measurement-z_hat)),np.matmul(linalg.inv(Q),(measurement-z_hat))))
-            
 
-
-
-        # for i in featureIDs:
-        #     #leave unchanged
-        #     print()
-    #featureIDs.add(j)
     featureIDs.add(j)
     Yt = ParticleSet(yt1.M)
     Yt.weights = weights
     drawnIndexes = systematic_resample(weights)
-    # print(drawnIndexes)
-    # xyNice = np.array([p.x[:2] for p in yt1.set])
-    # print(weights)
-    # xyNice.tolist().append(weights)
-    # xyNice = np.array(xyNice)
-    # print(xyNice)
     for i in drawnIndexes:
-        # k=drawWeight(weights)
         p =copy.deepcopy(yt1.set[i])
         Yt.add(p)
     print("\n")

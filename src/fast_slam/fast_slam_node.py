@@ -17,7 +17,7 @@ class FastSlamNode:
     def __init__(self):
 
         self.Nmarkers = 43
-        self.Nparticles = 200
+        self.Nparticles = 100
         self.timer_freq = 1
 
         self.detected_aruco_markers = []
@@ -130,24 +130,39 @@ def quaternion_to_yaw(quaternion):
 class Animater:
     def __init__(self):
 
+        self.path=[]
+        self.beacons={}
         # Initialize some necessary variables here
-        self.drawing_scale = 65
-        self.drawing_start = (200, 500)
+        self.drawing_scale = 64
+        self.drawing_start = (100, 700)
         #Some GUI to see if points are being updated
         self.root = tk.Tk()
-        self.canvas = tk.Canvas(self.root, width=1200, height=800)
+        self.canvas = tk.Canvas(self.root, width=1400, height=800)
         self.canvas.pack()
 
     def start_display(self):
         self.root.mainloop()
 
     def update_display(self, particleSet : ParticleSet, beacons: list):
-        self.canvas.delete('all')
-        robot_pos = estimate_robot_pos(particleSet)
+        robot_pos = estimate_robot_pos(particleSet, 1) #percentage of particles to use for estimation
+        if(len(self.path)):
+            if np.linalg.norm(self.path[-1] - robot_pos)*self.drawing_scale > 1:
+                self.path.append(robot_pos)
+
+        else:
+            self.path.append(robot_pos)
         beacons_pos = estimate_beacons_pos(particleSet, beacons)
-        self.draw_arrow(robot_pos[0], robot_pos[1], robot_pos[2])
+        self.draw_particles(particleSet)
+        self.draw_path()
         self.draw_beacons(beacons_pos)
-        print("Display updated")
+
+    def draw_particles(self, particleSet : ParticleSet):
+        self.canvas.delete('points')
+        Nparticles = particleSet.M
+        for i in range(Nparticles):
+            x = self.drawing_start[0] + self.drawing_scale * particleSet.set[i].x[0]
+            y = self.drawing_start[1] - self.drawing_scale * particleSet.set[i].x[1]
+            self.canvas.create_oval(x-2, y-2, x+2, y+2, fill="blue", tags="points")
 
     def draw_arrow(self, x, y, angle):
         angle = -(angle+math.pi/2)
@@ -168,31 +183,43 @@ class Animater:
         # Draw the arrow on the canvas
         self.canvas.create_polygon(x1, y1, x2, y2, x3, y3, fill="red")
 
+    def draw_path(self):
+        if(len(self.path) >= 2):
+            x1, y1, _ = self.path[-2]
+            x2, y2, _ = self.path[-1]
+            x1 = self.drawing_start[0] + self.drawing_scale * x1
+            y1 = self.drawing_start[1] - self.drawing_scale * y1
+            x2 = self.drawing_start[0] + self.drawing_scale * x2
+            y2 = self.drawing_start[1] - self.drawing_scale * y2
+            self.canvas.create_line(x1, y1, x2, y2, fill="red", width=2)
+
     def draw_beacons(self, beacons):
-        # Draw a circle at each point
+        self.canvas.delete('beacons')
         for beacon in beacons:
-            id = beacon["id"]
+            id = str(beacon["id"])
             pos = beacon["pos"]
             x = self.drawing_start[0] + self.drawing_scale * pos[0]
             y = self.drawing_start[1] - self.drawing_scale * pos[1]
             covar = beacon["covar"]
-            w, v = np.linalg.eig(covar)
+            w, _ = np.linalg.eig(covar)
             width = 20000 * np.abs(w)
-            angle = math.atan2(v[1, 0].real, v[0, 0].real)
             # Coordinates for the ellipse
             x0 = x - width[0] / 2
             y0 = y - width[1] / 2
             x1 = x + width[0] / 2
             y1 = y + width[1] / 2
-            self.canvas.create_oval(x0, y0, x1, y1)
-            self.canvas.create_text(x, y-15, text=id)
+            self.canvas.create_oval(x0, y0, x1, y1, tags="beacons")
+            self.canvas.create_text(x, y-15, text=id, tags="beacons")
 
-def estimate_robot_pos(particleSet : ParticleSet):
-    Nparticles = particleSet.M
-    sumWeights = np.sum(particleSet.weights)
+def estimate_robot_pos(particleSet : ParticleSet, PgoodParticles):
+    NgoodParticles = int(PgoodParticles*particleSet.M)
+    best_indices = np.argsort(particleSet.weights)[-NgoodParticles:]
+    weights = particleSet.weights[best_indices]
+    sumWeights = np.sum(weights)
+    positions = np.array(particleSet.set)[best_indices]
     meanPos = np.zeros((3,))
-    for i in range(Nparticles):
-        meanPos += (particleSet.weights[i]/sumWeights)*particleSet.set[i].x
+    for i in range(NgoodParticles):
+        meanPos += (particleSet.weights[i]/sumWeights)*positions[i].x
     return meanPos
 
 def estimate_beacons_pos(particleSet : ParticleSet, beacons: list):
