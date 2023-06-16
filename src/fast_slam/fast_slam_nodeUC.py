@@ -7,17 +7,17 @@ import tkinter as tk
 import rospy
 from nav_msgs.msg import Odometry
 from fiducial_msgs.msg import FiducialTransformArray
-import fastSlam1 as fs
-from fastSlam1 import Particle, ParticleSet
+import fastSlam1UC as fs
+from fastSlam1UC import Particle, ParticleSet
 
 usingVelocities = False
 
-class FastSlamNode:
+class FastSlamNodeUC:
 
     def __init__(self):
 
         self.Nmarkers = 43
-        self.Nparticles = 120
+        self.Nparticles = 75
         self.timer_freq = 1
 
         self.detected_aruco_markers = []
@@ -26,13 +26,13 @@ class FastSlamNode:
         self.particleSet = ParticleSet(self.Nparticles)
         for _ in range(self.Nparticles):
             #Make them random
-            self.particleSet.add( Particle(self.Nmarkers, 5*np.array([random.random(),random.random(),0]).astype(float)))
+            self.particleSet.add( Particle(5*np.array([random.random(),random.random(),0]).astype(float)))
         
         self.animate = Animater()
 
         # Initialize the ROS node
-        rospy.init_node('slam_node')
-        rospy.loginfo_once('Slam node has started')
+        rospy.init_node('slam_nodeUC')
+        rospy.loginfo_once('Slam node with UC has started')
 
         # Initialize the publishers and subscribers
         self.initialize_subscribers()
@@ -89,7 +89,7 @@ class FastSlamNode:
             covariances = np.array([msg.pose.covariance[0], msg.pose.covariance[0], msg.pose.covariance[0]])
             u = np.array([x - self.pose[0], y - self.pose[1], yaw - self.pose[2]])
             for k in range(self.Nparticles):
-                fs.predict(u, self.particleSet, None, k, covariances, usingVelocities=usingVelocities)
+                fs.predict(u, self.particleSet, None, k, covariances, usingVelocities)
             self.pose = (x, y, yaw)
             rospy.loginfo('Prediction step with linear velocity %f and angular velocity %f', u[0], u[1])
 
@@ -98,6 +98,7 @@ class FastSlamNode:
         """
         Callback function for the subscriber of the topic '/aruco_topic'.
         """
+        frames = []
         for marker in msg.transforms:
             id = marker.fiducial_id
             if id not in self.detected_aruco_markers:
@@ -109,8 +110,13 @@ class FastSlamNode:
             rospy.loginfo('Received detection of marker %s (number: %d) at relative position (%f, %f, %f)',
                            id, self.detected_aruco_markers.index(id), 
                            posCameraFrame[0], posCameraFrame[1], posCameraFrame[2])
-            self.particleSet = fs.FastSLAM(posCameraFrame, self.detected_aruco_markers.index(id),
-                                            np.array([0,0]), self.particleSet, None, usingVelocities=usingVelocities)
+            frames.append(posCameraFrame)
+        if frames != []:
+            if usingVelocities:
+                self.particleSet = fs.FastSLAM(frames, self.detected_aruco_markers.index(id),
+                                            np.array([0,0]), self.particleSet, None, usingVelocities)
+            else:
+                self.particleSet = fs.FastSLAM(np.array(frames), np.array([0,0,0]), self.particleSet)
 
             
 
@@ -125,7 +131,6 @@ def quaternion_to_yaw(quaternion):
 
 class Animater:
     def __init__(self):
-
 
         self.path=[]
         self.beacons={}
@@ -193,16 +198,17 @@ class Animater:
         if(len(self.path)):
             if np.linalg.norm(self.path[-1] - robot_pos)*self.drawing_scale > 1:
                 self.path.append(robot_pos)
+
         else:
             self.path.append(robot_pos)
             x, y, _ = robot_pos
             x = self.drawing_start[0] + self.drawing_scale * x
             y = self.drawing_start[1] - self.drawing_scale * y
             self.canvas.create_text(x, y, text="X", fill="red", font=("Arial", 20))
-        beacons_pos = estimate_beacons_pos(particleSet, beacons)
+        #beacons_pos = estimate_beacons_pos(particleSet, beacons)
         self.draw_particles(particleSet)
         self.draw_path()
-        self.draw_beacons(beacons_pos)
+        #self.draw_beacons(beacons_pos)
 
     def draw_particles(self, particleSet : ParticleSet):
         self.canvas.delete('points')
@@ -256,18 +262,24 @@ class Animater:
             y0 = y - width[1] / 2
             x1 = x + width[0] / 2
             y1 = y + width[1] / 2
-            self.canvas.create_oval(x0, y0, x1, y1, tags="beacons", outline="red", width=1.5)
-            self.canvas.create_text(x, y-15, text=id, tags="beacons", fill="red")
+            self.canvas.create_oval(x0, y0, x1, y1, tags="beacons")
+            self.canvas.create_text(x, y-15, text=id, tags="beacons")
 
 def estimate_robot_pos(particleSet : ParticleSet, PgoodParticles):
     NgoodParticles = int(PgoodParticles*particleSet.M)
-    best_indices = np.argsort(particleSet.weights)[-NgoodParticles:]
-    weights = particleSet.weights[best_indices]
+    weights = []
+    for p in particleSet.set:
+        try:
+            weights.append(np.max(p.weights))
+        except:
+            weights.append(0)
+    best_indices = np.argsort(weights)[-NgoodParticles:]
+    weights = np.array(weights)[best_indices]
     sumWeights = np.sum(weights)
     positions = np.array(particleSet.set)[best_indices]
     meanPos = np.zeros((3,))
     for i in range(NgoodParticles):
-        meanPos += (particleSet.weights[i]/sumWeights)*positions[i].x
+        meanPos += (weights[i]/sumWeights)*positions[i].x
     return meanPos
 
 def estimate_beacons_pos(particleSet : ParticleSet, beacons: list):
@@ -288,7 +300,7 @@ def estimate_beacons_pos(particleSet : ParticleSet, beacons: list):
 def main():
 
     # Create an instance of the ArucoNode class
-    node = FastSlamNode()
+    node = FastSlamNodeUC()
     node.animate.start_display()
 
     # Spin to keep the script for exiting

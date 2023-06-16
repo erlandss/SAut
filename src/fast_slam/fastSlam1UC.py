@@ -10,7 +10,7 @@ from matplotlib.animation import FuncAnimation
 #This may have to be changed to actual arucoIDs
 featureIDs =set()
 R_robot2camera = R.from_euler("yx",[90,-90],degrees=True).inv()
-Q_t =np.array(0.001*np.eye(2))
+Q_t =np.array(0.0025*np.eye(2))
 variances = np.array([0.01,0.001,0])
 
 
@@ -141,20 +141,6 @@ class ParticleSet:
 #             beaconMeans
         
 
-
-
-
-### MAKING SOME ARTIFICIAL TEST DATA ###
-
-testSet =ParticleSet(200)
-# X_t1 = np.array([11,5,np.pi/2])
-X_t1 =np.array([0.0,0.0,0.0])
-
-for i in range(testSet.M):
-    #Make them random
-    testSet.add(Particle(np.array([X_t1[0]+random.random()-0.5,X_t1[1]+random.random()-0.5,X_t1[2]]).astype(float)))
-    # testSet.add(Particle(3,(np.array([0,0,0])).astype(float)))
-
 def generate_random_beacons(num_beacons, x_range, y_range):
     beacons = np.random.randint(low=0, high=max(x_range, y_range), size=(num_beacons, 2))
     return beacons
@@ -204,45 +190,6 @@ def compute_observations(sample_positions, beacons):
                 observations_i.append(observation)
         observations.append(observations_i)
     return observations
-
-#Size of map
-x_map = 15
-y_map =15
-numBeacons = 40
-numPositions = 100
-# beacons = np.array([[3,2],[5,5],[1,4]])
-# samplePositions = np.array([[1,1,0],[2,1,np.pi/4],[3,3,np.pi/4],[3,3,np.pi],[3,3,3*np.pi/2]])
-# # correlations = [0,0,1,2,0]
-beacons = generate_random_beacons(numBeacons,x_map,y_map)
-samplePositions = generate_random_sampling_positions(numPositions,x_map,y_map)
-
-# beacons = generate_beacon_circuit(numBeacons,np.array([6,6]),4)
-# samplePositions = generate_circuit_sampling_positions(numPositions,np.array([6,6]),4)
-# samplePositions = generate_random_sampling_positions(numPositions,x_map,y_map)
-# print(samplePositions)
-inputs = compute_inputs(samplePositions,X_t1)
-# print(inputs)
-
-observations = compute_observations(samplePositions,beacons)
-# print(len(samplePositions))
-# inputs =[]
-# observations=[]
-
-# for i in range(len(samplePositions)):
-    
-#     newInput = [None]*2
-#     deltaState = samplePositions[i]-X_t1
-#     newInput[1]=np.arctan2(deltaState[1],deltaState[0])-X_t1[2]
-#     newInput[0]=np.sqrt(pow(deltaState[1],2)+pow(deltaState[0],2))
-#     inputs.append(newInput)
-
-#     inputs.append(np.array([0,samplePositions[i,2]-np.arctan2(deltaState[1],deltaState[0])]))
-#     X_t1 = samplePositions[i]
-
-# for i in range(len(samplePositions)):
-#     observations.append(h(samplePositions[i],beacons[correlations[i]]))
-
-
 
 ### ###
 
@@ -424,74 +371,112 @@ def compute_mean_state(particle_set):
     mean_state = total_state / num_particles
     return mean_state
 
-points = []
-avgpos=[]
-# beacs =[]
-points.append(np.array([testSet.set[i].x for i in range(testSet.M)]))
-for i in range(len(samplePositions)):
-    print(i)
-    particlePoints=[]
-    for j in range(testSet.M):
 
-        # print(testSet.set[j].x)
+def main():
+    ### MAKING SOME ARTIFICIAL TEST DATA ###
+
+    testSet =ParticleSet(200)
+    # X_t1 = np.array([11,5,np.pi/2])
+    X_t1 =np.array([0.0,0.0,0.0])
+
+    for i in range(testSet.M):
+        #Make them random
+        testSet.add(Particle(np.array([X_t1[0]+random.random()-0.5,X_t1[1]+random.random()-0.5,X_t1[2]]).astype(float)))
+        # testSet.add(Particle(3,(np.array([0,0,0])).astype(float)))
     
-        predict(inputs[2*i],testSet,1,j,variances,usingVelocities=True)
-        # print(testSet.set[j].x)
-        particlePoints.append(testSet.set[j].x)
+    #Size of map
+    x_map = 15
+    y_map =15
+    numBeacons = 40
+    numPositions = 100
+    # beacons = np.array([[3,2],[5,5],[1,4]])
+    # samplePositions = np.array([[1,1,0],[2,1,np.pi/4],[3,3,np.pi/4],[3,3,np.pi],[3,3,3*np.pi/2]])
+    # # correlations = [0,0,1,2,0]
+    beacons = generate_random_beacons(numBeacons,x_map,y_map)
+    samplePositions = generate_random_sampling_positions(numPositions,x_map,y_map)
 
-    points.append(np.array(particlePoints))
-    avgpos.append(compute_mean_state(testSet))
+    # beacons = generate_beacon_circuit(numBeacons,np.array([6,6]),4)
+    # samplePositions = generate_circuit_sampling_positions(numPositions,np.array([6,6]),4)
+    # samplePositions = generate_random_sampling_positions(numPositions,x_map,y_map)
+    # print(samplePositions)
+    inputs = compute_inputs(samplePositions,X_t1)
+    # print(inputs)
 
-    particlePoints=[]
+    observations = compute_observations(samplePositions,beacons)
 
-    # beacs.append([np.array([0,0])])
-
-    if len(observations[i])==0:
+    points = []
+    avgpos=[]
+    # beacs =[]
+    points.append(np.array([testSet.set[i].x for i in range(testSet.M)]))
+    for i in range(len(samplePositions)):
+        print(i)
+        particlePoints=[]
         for j in range(testSet.M):
-            predict(inputs[2*i+1],testSet,1,j,variances,usingVelocities=True)
-        newSet=testSet
-        # beacs.append([np.array([0,0])])
-    else:
-        newSet = FastSLAM(observations[i],inputs[2*i+1],testSet)
-    avgpos.append(compute_mean_state(testSet))
+
+            # print(testSet.set[j].x)
         
-    
+            predict(inputs[2*i],testSet,1,j,variances,usingVelocities=True)
+            # print(testSet.set[j].x)
+            particlePoints.append(testSet.set[j].x)
+
+        points.append(np.array(particlePoints))
+        avgpos.append(compute_mean_state(testSet))
+
+        particlePoints=[]
+
+        # beacs.append([np.array([0,0])])
+
+        if len(observations[i])==0:
+            for j in range(testSet.M):
+                predict(inputs[2*i+1],testSet,1,j,variances,usingVelocities=True)
+            newSet=testSet
+            # beacs.append([np.array([0,0])])
+        else:
+            newSet = FastSLAM(observations[i],inputs[2*i+1],testSet)
+        avgpos.append(compute_mean_state(testSet))
+            
+        
 
 
-    # newSet = FastSLAM(observations[i],inputs[2*i+1],testSet)
-    # print(observations[i])
-    for j in range(testSet.M):
-        particlePoints.append(newSet.set[j].x)
+        # newSet = FastSLAM(observations[i],inputs[2*i+1],testSet)
+        # print(observations[i])
+        for j in range(testSet.M):
+            particlePoints.append(newSet.set[j].x)
 
-    points.append(np.array(particlePoints))
-    # print(particlePoints)
-    testSet=newSet
+        points.append(np.array(particlePoints))
+        # print(particlePoints)
+        testSet=newSet
 
-avgpos=np.array(avgpos)
-# for i in range(10):
+    avgpos=np.array(avgpos)
+    # for i in range(10):
 
 
-fig, ax = plt.subplots(1, 1)
-fig.set_size_inches(5,5)
-print(len(points))
-def animate(i):
-    ax.clear()
-    # Get the point from the points list at index i
-    pointList = points[i]
-    # b = np.array(beacs[i])
-    # Plot that point using the x and y coordinates
-    ax.scatter(pointList[:,0], pointList[:,1], color='green', 
-            label='original', marker='.')
-    ax.scatter(beacons[:,0],beacons[:,1],color='red',marker='^')
-    ax.scatter(samplePositions[int(i/2),0],samplePositions[int(i/2),1],color='b',marker='o')
-    ax.scatter(avgpos[i,0],avgpos[i,1],color="c",marker="*")
+    fig, ax = plt.subplots(1, 1)
+    fig.set_size_inches(5,5)
+    print(len(points))
+    def animate(i):
+        ax.clear()
+        # Get the point from the points list at index i
+        pointList = points[i]
+        # b = np.array(beacs[i])
+        # Plot that point using the x and y coordinates
+        ax.scatter(pointList[:,0], pointList[:,1], color='green', 
+                label='original', marker='.')
+        ax.scatter(beacons[:,0],beacons[:,1],color='red',marker='^')
+        ax.scatter(samplePositions[int(i/2),0],samplePositions[int(i/2),1],color='b',marker='o')
+        ax.scatter(avgpos[i,0],avgpos[i,1],color="c",marker="*")
 
-    # Set the x and y axis to display a fixed range
-    ax.set_xlim([-1, x_map+1])
-    ax.set_ylim([-1, y_map+1])
-ani = FuncAnimation(fig, animate, frames=len(points)-1,
-                    interval=500, repeat=False)
-plt.show()
-plt.close()
+        # Set the x and y axis to display a fixed range
+        ax.set_xlim([-1, x_map+1])
+        ax.set_ylim([-1, y_map+1])
+    ani = FuncAnimation(fig, animate, frames=len(points)-1,
+                        interval=500, repeat=False)
+    plt.show()
+    plt.close()
+
+
+
+if __name__== '__main__':
+    main()
 
 
