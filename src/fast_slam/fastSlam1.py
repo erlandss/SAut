@@ -148,7 +148,7 @@ def FastSLAM(z_t: np.ndarray, c_t : int ,u_t : np.ndarray, Y_t1 :ParticleSet, de
         measurement = z_t
         currentParticle = yt1.set[k]
         #Predict pose
-        predict(u_t, yt1, delta_t, k, usingVelocities)
+        predict(u_t, yt1, delta_t, k, np.eye(len(u_t)) ,usingVelocities=usingVelocities)
 
         j=c_t
         
@@ -183,7 +183,6 @@ def FastSLAM(z_t: np.ndarray, c_t : int ,u_t : np.ndarray, Y_t1 :ParticleSet, de
     for i in drawnIndexes:
         p =copy.deepcopy(yt1.set[i])
         Yt.add(p)
-    print("\n")
     return Yt
 
 
