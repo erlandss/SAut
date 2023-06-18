@@ -26,7 +26,7 @@ def h(state,mu):
         mu = np.append(mu,0)
     else:
         mu=np.array(mu)
-    # print(mu)
+
     R_robot2base = R.from_euler("z",theta,degrees=False)
     R_base2robot = R_robot2base.inv()
     return R_robot2camera.apply((R_base2robot.apply(mu-position)))
@@ -333,9 +333,6 @@ def plot_ellipse(mean, covariance, ax):
 
     ax.add_patch(ell)
 
-def trace_cov_matrix (covariance):
-
-    return
 
 def rms_error (ground_truth, estimated):
     ground_truth_2d = np.reshape(ground_truth, (1, 2))
@@ -396,16 +393,16 @@ def main ():
     odomes = []
     odomes.append(np.array([extraSet.set[i].x for i in range(extraSet.M)]))
     estimatedOdomes = []
-    #estimatedOdomes.append([0,0])
+    estimatedOdomes.append([0,0])
 
     allBeacons = [] # For storing the beacons mean and covariance [mean,covariance]
 
     rmse_values = []
-    #rmse_values.append(0)
+    rmse_values.append(0)
     rmse_values_odom = []
-    #rmse_values_odom.append(0)
+    rmse_values_odom.append(0)
     trace_values=[]
-    #trace_values=[0]
+    trace_values.append(0)
 
     for i in range(numInputs):
 
@@ -461,8 +458,8 @@ def main ():
         trace=0
         for j in featureIDs:
             beaconsParameters.append([knownBeacons[j].mean,knownBeacons[j].covariance])
-            if j == 1 and knownBeacons[1].covariance is not None and np.any(knownBeacons[1].covariance != None):
-                trace = np.trace(knownBeacons[1].covariance)
+            if j == 2 and knownBeacons[2].covariance is not None and np.any(knownBeacons[2].covariance != None):
+                trace = np.trace(knownBeacons[2].covariance)
         allBeacons.append(beaconsParameters)
         trace_values.append(trace)
 
@@ -470,9 +467,12 @@ def main ():
         for j in featureIDs:
             update_beacon(testSet, j, knownBeacons)
             beaconsParameters.append([knownBeacons[j].mean,knownBeacons[j].covariance])
+            if j == 2 and knownBeacons[2].covariance is not None and np.any(knownBeacons[2].covariance != None):
+                trace = np.trace(knownBeacons[2].covariance)
         allBeacons.append(beaconsParameters)
-
+        trace_values.append(trace)
     
+    x_values = np.repeat(xs, 2)
 
     ########
 
@@ -480,8 +480,7 @@ def main ():
 
     fig, (ax1, ax2) = plt.subplots(1, 2)
     ax2_2 = ax2.twinx()
-    fig.set_size_inches(10,5) 
-
+    fig.set_size_inches(12,5) 
 
     plt.style.use("fivethirtyeight")
 
@@ -545,27 +544,24 @@ def main ():
 
         ax2.clear()
         ax2_2.clear()
-        len(trace_values)
-        ax2.set_xlim([0, len(rmse_values_odom)])
-        ax2.set_ylim([0, np.max(rmse_values_odom) + 1])
+        ax2.set_xlim([-1, 8])
+        ax2.set_ylim([0, np.max(rmse_values_odom)])
         ax2.set_title('Evolution of RMSE', fontsize=12)
-        ax2.set_xlabel('Frame (i)', fontsize=10)
+        ax2.set_xlabel('x [m]', fontsize=10)
         ax2.set_ylabel('RMSE', fontsize=10)
 
-
         # Calculate the root mean squared error error between ground truth and estimated positions
-        ax2.plot(range(i + 1), rmse_values[:i + 1], color='blue', label='RMSE between True and Estimated Position', linewidth=1)
-        ax2.plot(range(i + 1), rmse_values_odom[:i + 1], color='black', label='RMSE between True and Odometry Position', linewidth=1)
-        
-        ax2_2.set_ylim([0, np.max(trace_values) + 1])
+        ax2.plot(x_values[:i+1], rmse_values[:i + 1], color='blue', label='RMSE between True and Estimated Position', linewidth=1)
+        ax2.plot(x_values[:i+1], rmse_values_odom[:i + 1], color='black', label='RMSE between True and Odometry Position', linewidth=1)
+        ax2_2.plot(x_values[:i+1], trace_values[:i+1], color='red', linewidth=1)
+        ax2.plot([],[], color='red', label='Trace of covariance matrix of beacon [5,3]', linewidth=1)
+        ax2_2.set_ylim([0, 1.1*np.max(trace_values)])
         ax2_2.set_ylabel('Trace Values', fontsize=10)
+        ax2_2.yaxis.set_label_coords(1.25, 0.5)
 
-        ax2_2.plot(range(i + 1), trace_values[:i + 1], color='red', label='Trace of covariance matrix of beacon [3,2]', linewidth=1)
     
         ax2.legend(loc='upper left', fontsize=7)
-
-        fig.subplots_adjust(right=0.75)
-
+        
         return path,
 
     # Create the animation
