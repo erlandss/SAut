@@ -411,6 +411,7 @@ def main ():
         odomePoints=[]
         rmse=[]
         rmse_odom=[]
+        
         for j in range(testSet.M):
             predict(inputs[2*i],testSet,1,j, variances)
             particlePoints.append(testSet.set[j].x)
@@ -546,18 +547,20 @@ def main ():
         ax2_2.clear()
         ax2.set_xlim([-1, 8])
         ax2.set_ylim([0, np.max(rmse_values_odom)])
-        ax2.set_title('Evolution of RMSE', fontsize=12)
+        ax2.set_title('Evolution of RMSE and Trace of Covariance Matrix', fontsize=12)
         ax2.set_xlabel('x [m]', fontsize=10)
         ax2.set_ylabel('RMSE', fontsize=10)
+
+        ax2_2.set_ylim([0, 1.1*np.max(trace_values)])
+        ax2_2.set_ylabel('Trace Values', fontsize=10)
+        ax2_2.yaxis.set_label_coords(1.25, 0.5)
 
         # Calculate the root mean squared error error between ground truth and estimated positions
         ax2.plot(x_values[:i+1], rmse_values[:i + 1], color='blue', label='RMSE between True and Estimated Position', linewidth=1)
         ax2.plot(x_values[:i+1], rmse_values_odom[:i + 1], color='black', label='RMSE between True and Odometry Position', linewidth=1)
         ax2_2.plot(x_values[:i+1], trace_values[:i+1], color='red', linewidth=1)
         ax2.plot([],[], color='red', label='Trace of covariance matrix of beacon [5,3]', linewidth=1)
-        ax2_2.set_ylim([0, 1.1*np.max(trace_values)])
-        ax2_2.set_ylabel('Trace Values', fontsize=10)
-        ax2_2.yaxis.set_label_coords(1.25, 0.5)
+        
 
     
         ax2.legend(loc='upper left', fontsize=7)
@@ -569,7 +572,9 @@ def main ():
     # Show the plot
     plt.show()
 
+
     ########
 
 
-main()
+if __name__== '__main__':
+    main()
