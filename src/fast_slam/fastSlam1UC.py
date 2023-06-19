@@ -6,6 +6,7 @@ import scipy.linalg as linalg
 import random as random
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from fastSlam1_artificial_data import rms_error
 
 #This may have to be changed to actual arucoIDs
 featureIDs =set()
@@ -151,6 +152,7 @@ def generate_beacon_circuit(num_beacons, circle_center:np.ndarray,circle_radius)
     for i in range(num_beacons):
         beacons.append(circle_center+ circle_radius*np.array([np.cos(i*anglePartition),np.sin(i*anglePartition)]))
     return np.array(beacons)
+
 def generate_circuit_sampling_positions(num_positions,circle_center:np.ndarray,circle_radius):
     poses=[]
     anglePartition = 4*np.pi/num_positions
@@ -246,14 +248,12 @@ def predictMidpoint(u_t : np.ndarray, set :ParticleSet, delta_t : float,k :int):
 def FastSLAM(z_t: np.ndarray,u_t : np.ndarray, Y_t1 :ParticleSet):
     yt1 = Y_t1
     weights = []
-    # print(z_t)
     for k in range(yt1.M):
         currentParticle = yt1.set[k]
         flaggedBeacons = []
 
         predict(u_t,yt1,1,k,variances,usingVelocities=True)
         for m in z_t:
-            # print(m)
             measurement = m
             measurement =np.array([measurement[0],measurement[2]])
             
@@ -359,7 +359,6 @@ def FastSLAM(z_t: np.ndarray,u_t : np.ndarray, Y_t1 :ParticleSet):
         p =copy.deepcopy(yt1.set[i])
         Yt.add(p)
     
-    print("\n")
     return Yt
 
 def compute_mean_state(particle_set):
@@ -378,11 +377,14 @@ def main():
     testSet =ParticleSet(200)
     # X_t1 = np.array([11,5,np.pi/2])
     X_t1 =np.array([0.0,0.0,0.0])
-
     for i in range(testSet.M):
         #Make them random
         testSet.add(Particle(np.array([X_t1[0]+random.random()-0.5,X_t1[1]+random.random()-0.5,X_t1[2]]).astype(float)))
         # testSet.add(Particle(3,(np.array([0,0,0])).astype(float)))
+    extraSet =ParticleSet(200)
+    X_t1 =np.array([0.0,0.0,0.0])
+    for i in range(extraSet.M):
+        extraSet.add(Particle(np.array([X_t1[0]+random.random()-0.5,X_t1[1]+random.random()-0.5,X_t1[2]]).astype(float)))
     
     #Size of map
     x_map = 15
@@ -392,39 +394,78 @@ def main():
     # beacons = np.array([[3,2],[5,5],[1,4]])
     # samplePositions = np.array([[1,1,0],[2,1,np.pi/4],[3,3,np.pi/4],[3,3,np.pi],[3,3,3*np.pi/2]])
     # # correlations = [0,0,1,2,0]
-    beacons = generate_random_beacons(numBeacons,x_map,y_map)
-    samplePositions = generate_random_sampling_positions(numPositions,x_map,y_map)
+    #beacons = generate_random_beacons(numBeacons,x_map,y_map)
+    #samplePositions = generate_random_sampling_positions(numPositions,x_map,y_map)
 
-    # beacons = generate_beacon_circuit(numBeacons,np.array([6,6]),4)
-    # samplePositions = generate_circuit_sampling_positions(numPositions,np.array([6,6]),4)
-    # samplePositions = generate_random_sampling_positions(numPositions,x_map,y_map)
+    beacons = generate_beacon_circuit(numBeacons,np.array([6,6]),4)
+    samplePositions = generate_circuit_sampling_positions(numPositions,np.array([6,6]),4)
+    xs = []
+    ys = []
+    for i in samplePositions:
+        x = float(i[0])
+        y = float(i[1])
+        #theta = float(i[2])
+        xs.append(x)
+        ys.append(y)
+        
+    samplePositions = np.array(samplePositions)
+    xs = np.array(xs)
+    ys = np.array(ys)# samplePositions = generate_random_sampling_positions(numPositions,x_map,y_map)
     # print(samplePositions)
     inputs = compute_inputs(samplePositions,X_t1)
     # print(inputs)
 
     observations = compute_observations(samplePositions,beacons)
 
-    points = []
-    avgpos=[]
-    # beacs =[]
-    points.append(np.array([testSet.set[i].x for i in range(testSet.M)]))
-    for i in range(len(samplePositions)):
-        print(i)
-        particlePoints=[]
-        for j in range(testSet.M):
 
-            # print(testSet.set[j].x)
+
+    points = []
+    points.append(np.array([testSet.set[i].x for i in range(testSet.M)]))
+    avgpos=[]
+
+    odomes = []
+    odomes.append(np.array([extraSet.set[i].x for i in range(extraSet.M)]))
+    estimatedOdomes = []
+
+    rmse_values = []
+    rmse_values.append(0)
+    rmse_values_odom = []
+    rmse_values_odom.append(0)
+
+    # beacs =[]
+    
+    for i in range(len(samplePositions)):
+
+        particlePoints=[]
+        odomePoints=[]
+        rmse=[]
+        rmse_odom=[]
+
+        for j in range(testSet.M):
         
             predict(inputs[2*i],testSet,1,j,variances,usingVelocities=True)
-            # print(testSet.set[j].x)
             particlePoints.append(testSet.set[j].x)
 
+            predict(inputs[2*i],extraSet,1,j,variances,usingVelocities=True)
+            odomePoints.append(extraSet.set[j].x)
+
         points.append(np.array(particlePoints))
-        avgpos.append(compute_mean_state(testSet))
+        estimated_pos = compute_mean_state(testSet)
+        avgpos.append(estimated_pos)
+
+        rmse = rms_error(samplePositions[i][:2], estimated_pos[:2])
+        rmse_values.append(rmse)
+
+        odomes.append(np.array(odomePoints))
+        estimated_pos_odom = compute_mean_state(extraSet)
+        estimatedOdomes.append(estimated_pos_odom)
+
+        rmse_odom = rms_error(samplePositions[i][:2], estimated_pos_odom[:2])
+        rmse_values_odom.append(rmse_odom)
 
         particlePoints=[]
-
-        # beacs.append([np.array([0,0])])
+        rmse=[]
+        rmse_odom=[]
 
         if len(observations[i])==0:
             for j in range(testSet.M):
@@ -433,13 +474,20 @@ def main():
             # beacs.append([np.array([0,0])])
         else:
             newSet = FastSLAM(observations[i],inputs[2*i+1],testSet)
-        avgpos.append(compute_mean_state(testSet))
-            
-        
+        # avgpos.append(compute_mean_state(testSet))
+        estimated_pos = compute_mean_state(newSet)
+        avgpos.append(estimated_pos)
 
+        rmse = rms_error(samplePositions[i][:2], estimated_pos[:2])
+        rmse_values.append(rmse)
+
+        odomes.append(np.array(odomePoints))
+        estimatedOdomes.append(estimated_pos_odom)
+
+        rmse_odom = rms_error(samplePositions[i][:2], estimated_pos_odom[:2])
+        rmse_values_odom.append(rmse_odom)
 
         # newSet = FastSLAM(observations[i],inputs[2*i+1],testSet)
-        # print(observations[i])
         for j in range(testSet.M):
             particlePoints.append(newSet.set[j].x)
 
@@ -448,29 +496,67 @@ def main():
         testSet=newSet
 
     avgpos=np.array(avgpos)
-    # for i in range(10):
 
 
-    fig, ax = plt.subplots(1, 1)
-    fig.set_size_inches(5,5)
-    print(len(points))
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    ax2_2 = ax2.twinx()
+    fig.set_size_inches(12,5) 
+
     def animate(i):
-        ax.clear()
-        # Get the point from the points list at index i
-        pointList = points[i]
+        ax1.clear()
+        # Set the x and y axis to display a fixed range
+        ax1.set_xlim([-1, x_map+1])
+        ax1.set_ylim([-1, y_map+1])
+        ax1.set_xlabel('x [m]', fontsize=10)
+        ax1.set_ylabel('y [m]', fontsize=10)
+        ax1.set_title('FastSLAM UC with artificial data', fontsize=12)
+
+        pointList = points[i+1]
         # b = np.array(beacs[i])
         # Plot that point using the x and y coordinates
-        ax.scatter(pointList[:,0], pointList[:,1], color='green', 
-                label='original', marker='.')
-        ax.scatter(beacons[:,0],beacons[:,1],color='red',marker='^')
-        ax.scatter(samplePositions[int(i/2),0],samplePositions[int(i/2),1],color='b',marker='o')
-        ax.scatter(avgpos[i,0],avgpos[i,1],color="c",marker="*")
+        ax1.scatter(pointList[:,0], pointList[:,1], color='blue', marker='.')
+        
+        ax1.scatter(beacons[:,0],beacons[:,1],color='green', label="True Beacons Position", marker='^', linewidth=1.5)
+        
+        x_data = xs[:(i//2)+1]
+        y_data = ys[:(i//2)+1]
+        ax1.scatter(x_data[i//2],y_data[i//2],color='green',marker='o')
+        ax1.plot(x_data, y_data, color='green', label='True Robot Trajectory', linewidth=1)
 
-        # Set the x and y axis to display a fixed range
-        ax.set_xlim([-1, x_map+1])
-        ax.set_ylim([-1, y_map+1])
+        estimated_x_data = [pos[0] for pos in avgpos[:i]]
+        estimated_y_data = [pos[1] for pos in avgpos[:i]]
+        ax1.plot(estimated_x_data, estimated_y_data, color='turquoise', label='Estimated Robot Trajectory', linewidth=1)
+        ax1.scatter(avgpos[i,0],avgpos[i,1],color="turquoise",marker="o")
+
+        estimatedOdome = estimatedOdomes[i]
+        odome_x_data = [pos[0] for pos in estimatedOdomes[:i]]
+        odome_y_data = [pos[1] for pos in estimatedOdomes[:i]]
+        ax1.plot(odome_x_data, odome_y_data, color='black', label='Odometry Robot Position', linewidth=1)
+        ax1.scatter(estimatedOdome[0], estimatedOdome[1], color='black', marker='o')
+
+        ax1.scatter(samplePositions[0][0], samplePositions[0][1],color="orange", marker='*', s=80, linewidths=1)
+        ax1.legend(loc='upper left', fontsize=7)
+
+        ax2.clear()
+        ax2_2.clear()
+        ax2.set_xlim([0,numPositions*2])
+        ax2.set_ylim([0, np.max(rmse_values)])
+        ax2.set_title('Evolution of RMSE', fontsize=12)
+        ax2.set_xlabel('i [frames]', fontsize=10)
+        ax2.set_ylabel('RMSE', fontsize=10)
+
+        ax2_2.set_ylim([0, 1.1*np.max(rmse_values_odom)])
+
+        # Calculate the root mean squared error error between ground truth and estimated positions
+        ax2.plot(range(i), rmse_values[:i], color='blue', label='RMSE between True and Estimated Position', linewidth=1)
+        ax2_2.plot(range(i), rmse_values_odom[:i], color='black', label='RMSE between True and Odometry Position', linewidth=1)
+        ax2.plot([],[], color='black', label='RMSE between True and Odometry Position', linewidth=1)
+        ax2.legend(loc='upper left', fontsize=7)
+
+
     ani = FuncAnimation(fig, animate, frames=len(points)-1,
-                        interval=500, repeat=False)
+                        interval=500, repeat=True)
+    
     plt.show()
     plt.close()
 
